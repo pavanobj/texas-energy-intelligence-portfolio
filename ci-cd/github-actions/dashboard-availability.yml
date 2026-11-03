@@ -1,0 +1,100 @@
+name: Dashboard Availability
+
+on:
+  workflow_dispatch:
+    inputs:
+      availability:
+        description: "Public CloudFront availability"
+        required: true
+        type: choice
+        options:
+          - "on"
+          - "off"
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: texas-energy-dashboard-availability
+  cancel-in-progress: false
+
+jobs:
+  toggle:
+    if: github.repository == 'example-org/texas-energy-intelligence-portfolio' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+      DASHBOARD_COMMENT: Texas Energy Intelligence published dashboard
+      DESIRED: ${{ inputs.availability }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-dashboard-switch
+          aws-region: us-east-1
+          allowed-account-ids: "<AWS_ACCOUNT_ID>"
+
+      - name: Toggle only the tagged dashboard distribution
+        id: dashboard
+        run: |
+          set -euo pipefail
+          distribution_id="$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='$DASHBOARD_COMMENT'].Id | [0]" --output text)"
+          test -n "$distribution_id" && test "$distribution_id" != "None"
+          distribution_arn="arn:example:cloudfront::<AWS_ACCOUNT_ID>:distribution/$distribution_id"
+          project_tag="$(aws cloudfront list-tags-for-resource --resource "$distribution_arn" --query "Tags.Items[?Key=='Project'].Value | [0]" --output text)"
+          test "$project_tag" = "TexasEnergyDashboard"
+          aws cloudfront get-distribution-config --id "$distribution_id" > distribution.json
+          etag="$(jq -r '.ETag' distribution.json)"
+          case "$DESIRED" in on) enabled=true ;; off) enabled=false ;; *) exit 2 ;; esac
+          jq --argjson enabled "$enabled" '.DistributionConfig | .Enabled = $enabled' distribution.json > distribution-config.json
+          aws cloudfront update-distribution --id "$distribution_id" --if-match "$etag" --distribution-config file://distribution-config.json >/dev/null
+          aws cloudfront wait distribution-deployed --id "$distribution_id"
+          state="$(aws cloudfront get-distribution --id "$distribution_id" --query 'Distribution.DistributionConfig.Enabled' --output text)"
+          expected="$( [ "$DESIRED" = on ] && echo True || echo False )"
+          test "$state" = "$expected"
+          domain="$(aws cloudfront get-distribution --id "$distribution_id" --query 'Distribution.DomainName' --output text)"
+          code="$(curl --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 5 -sS -o /dev/null -w '%{http_code}' "https://$domain/" || true)"
+          if [ "$DESIRED" = on ]; then test "$code" = "200"; else [[ "$code" = "000" || "$code" =~ ^[45][0-9][0-9]$ ]]; fi
+          echo "distribution_id=$distribution_id" >> "$GITHUB_OUTPUT"
+          echo "domain=$domain" >> "$GITHUB_OUTPUT"
+          echo "http_status=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Persist the desired availability in Terraform configuration
+        run: |
+          python - <<'PY'
+          import os, re
+          from pathlib import Path
+          path = Path("infra/terraform/app/dashboard.auto.tfvars")
+          desired = "true" if os.environ["DESIRED"] == "on" else "false"
+          text = path.read_text(encoding="utf-8")
+          updated, count = re.subn(r"(?m)^enable_dashboard_public_access\s*=\s*(?:true|false)\s*$", f"enable_dashboard_public_access = {desired}", text)
+          if count != 1:
+              raise SystemExit("Expected exactly one durable dashboard availability setting")
+          path.write_text(updated, encoding="utf-8")
+          PY
+          git diff --check
+          if git diff --quiet -- infra/terraform/app/dashboard.auto.tfvars; then
+            echo "Dashboard Terraform source already recorded ${DESIRED}." >> "$GITHUB_STEP_SUMMARY"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add infra/terraform/app/dashboard.auto.tfvars
+            git commit -m "chore: turn dashboard ${DESIRED}"
+            git push origin HEAD:main
+          fi
+
+      - name: Report verified public availability
+        run: |
+          {
+            echo "## Dashboard availability"
+            echo "- Requested: **${DESIRED}**"
+            echo "- Distribution: \`${{ steps.dashboard.outputs.distribution_id }}\`"
+            echo "- Current HTTP status: \`${{ steps.dashboard.outputs.http_status }}\`"
+            echo "- URL: https://${{ steps.dashboard.outputs.domain }}/"
+            echo "- Terraform source: \`infra/terraform/app/dashboard.auto.tfvars\`"
+          } >> "$GITHUB_STEP_SUMMARY"

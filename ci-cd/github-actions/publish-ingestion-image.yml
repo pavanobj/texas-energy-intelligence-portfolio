@@ -1,0 +1,144 @@
+name: Publish Ingestion Image
+
+on:
+  # Image publication writes to ECR. Keep it explicit so a source or
+  # workflow-only commit cannot publish an image as a side effect.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-build-and-push:
+    if: github.repository == 'example-org/texas-energy-intelligence-portfolio' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: ingestion-ecr-image-${{ github.sha }}
+      cancel-in-progress: false
+    outputs:
+      image_digest: ${{ steps.image.outputs.digest }}
+      image_uri: ${{ steps.image.outputs.uri }}
+      image_published: ${{ steps.image.outputs.published }}
+
+    env:
+      AWS_REGION: us-east-1
+      ECR_REPOSITORY: texas-energy-ingestion
+      IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[test]"
+
+      - name: Run portable tests
+        run: pytest -q --ignore=tests/spark
+
+      - name: Configure AWS credentials for ECR publication
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: "<AWS_ACCOUNT_ID>"
+
+      - name: Check for an existing immutable image tag
+        id: existing-image
+        env:
+          AWS_PAGER: ""
+        run: |
+          set +e
+          digest="$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$IMAGE_TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text \
+            --region "$AWS_REGION" \
+            2>"$RUNNER_TEMP/ecr-describe-image-error")"
+          status=$?
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "digest=$digest" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if grep -q "ImageNotFoundException" "$RUNNER_TEMP/ecr-describe-image-error"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "::error::Unable to determine whether the immutable ECR image tag already exists."
+          exit "$status"
+
+      - name: Log in to Amazon ECR
+        if: steps.existing-image.outputs.exists != 'true'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Linux AMD64 ingestion image
+        if: steps.existing-image.outputs.exists != 'true'
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            --provenance=false \
+            --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            .
+
+      - name: Push immutable ingestion image
+        if: steps.existing-image.outputs.exists != 'true'
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+      - name: Record immutable image digest
+        id: image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          AWS_PAGER: ""
+        run: |
+          if [ "${{ steps.existing-image.outputs.exists }}" = "true" ]; then
+            digest="${{ steps.existing-image.outputs.digest }}"
+            registry="<AWS_ACCOUNT_ID>.dkr.ecr.$AWS_REGION.amazonaws.com"
+            published=false
+          else
+            digest="$(aws ecr describe-images \
+              --repository-name "$ECR_REPOSITORY" \
+              --image-ids imageTag="$IMAGE_TAG" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text \
+              --region "$AWS_REGION")"
+            registry="$ECR_REGISTRY"
+            published=true
+          fi
+
+          if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "::error::ECR did not return an immutable SHA-256 image digest."
+            exit 1
+          fi
+
+          image_uri="$registry/$ECR_REPOSITORY@$digest"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "uri=$image_uri" >> "$GITHUB_OUTPUT"
+          echo "published=$published" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Ingestion image"
+            echo ""
+            echo "- Tag: \`$IMAGE_TAG\`"
+            echo "- Digest: \`$digest\`"
+            echo "- Published in this run: \`$published\`"
+          } >> "$GITHUB_STEP_SUMMARY"

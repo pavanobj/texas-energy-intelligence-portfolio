@@ -1,0 +1,61 @@
+name: Publish Portfolio Snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Enter PUBLISH_PORTFOLIO_SNAPSHOT after reviewing inventory and scans"
+        required: true
+        type: string
+      dry_run:
+        description: "Validate the public snapshot without publishing it"
+        required: false
+        default: false
+        type: boolean
+  # 02:17 UTC is CDT and 03:17 UTC is CST. The script accepts only the
+  # matching 9:17 PM America/Chicago invocation, one eligible local-day
+  # publication window, and the schedule stays gated.
+  schedule:
+    - cron: "17 2 * * *"
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  export-and-publish:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.confirmation == 'PUBLISH_PORTFOLIO_SNAPSHOT') ||
+      (github.event_name == 'schedule' && vars.PORTFOLIO_SCHEDULE_ENABLED == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install portable validation dependencies
+        run: python -m pip install --upgrade pip && python -m pip install ".[test]"
+      - name: Validate source contracts before export
+        run: |
+          python -m pytest -q tests/test_portfolio_snapshot.py
+          python -m py_compile scripts/export_portfolio_snapshot.py scripts/publish_portfolio_snapshot.py
+      - name: Build and scan deterministic snapshot
+        run: |
+          git rev-list --all > /tmp/private-commit-ids.txt
+          python scripts/export_portfolio_snapshot.py --output /tmp/portfolio-snapshot --private-commit-file /tmp/private-commit-ids.txt
+      - name: Run the documented public test suite in the fresh snapshot
+        run: |
+          cd /tmp/portfolio-snapshot
+          python -m pytest -q tests/test_package.py tests/test_glue_entrypoint.py tests/test_glue_packaging.py tests/test_model_lifecycle.py tests/forecast/test_curve_contract.py tests/forecast/test_curve_comparison.py tests/forecast/test_evaluation.py tests/forecast/test_dashboard_evaluation.py tests/forecast/test_point_in_time.py tests/forecast/test_issued_curve_evaluation.py tests/ingestion/test_bronze.py tests/ingestion/test_eia.py tests/ingestion/test_open_meteo.py
+      - name: Publish only after the reviewed gate
+        if: github.event_name == 'schedule' || inputs.dry_run != true
+        env:
+          PORTFOLIO_DESTINATION_TOKEN: ${{ secrets.PORTFOLIO_DESTINATION_TOKEN }}
+          PORTFOLIO_SCHEDULE_ENABLED: ${{ vars.PORTFOLIO_SCHEDULE_ENABLED }}
+        run: |
+          mode=manual
+          if [ "${{ github.event_name }}" = "schedule" ]; then mode=scheduled; fi
+          git rev-list --all > /tmp/private-commit-ids.txt
+          python scripts/publish_portfolio_snapshot.py --mode "$mode" --private-commit-file /tmp/private-commit-ids.txt

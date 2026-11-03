@@ -1,0 +1,44 @@
+name: Publish Private AgentCore Runtime Image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.repository == 'example-org/texas-energy-intelligence-portfolio' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: us-east-1
+          allowed-account-ids: "<AWS_ACCOUNT_ID>"
+      - name: Verify account and immutable repository
+        run: |
+          test "$(aws sts get-caller-identity --query Account --output text)" = "<AWS_ACCOUNT_ID>"
+          test "$(aws ecr describe-repositories --repository-names texas-energy-private-agent --query 'repositories[0].imageTagMutability' --output text)" = "IMMUTABLE"
+      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and push reviewed ARM64 image
+        id: image
+        env:
+          REPOSITORY: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/texas-energy-private-agent
+          TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          docker buildx build --platform linux/arm64 --file deployment/agentcore/Dockerfile --tag "$REPOSITORY:$TAG" --push .
+          digest="$(aws ecr describe-images --repository-name texas-energy-private-agent --image-ids imageTag="$TAG" --query 'imageDetails[0].imageDigest' --output text)"
+          test "$digest" != "None"
+          echo "image_uri=$REPOSITORY@$digest" >> "$GITHUB_OUTPUT"
+      - name: Report immutable image URI
+        run: echo "${{ steps.image.outputs.image_uri }}"

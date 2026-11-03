@@ -1,0 +1,19 @@
+name: Offline CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --upgrade pip && python -m pip install ".[test]"
+      - run: python -m pytest -q tests/test_package.py tests/test_glue_entrypoint.py tests/test_glue_packaging.py tests/test_model_lifecycle.py tests/forecast/test_curve_contract.py tests/forecast/test_curve_comparison.py tests/forecast/test_evaluation.py tests/forecast/test_dashboard_evaluation.py tests/forecast/test_point_in_time.py tests/forecast/test_issued_curve_evaluation.py tests/ingestion/test_bronze.py tests/ingestion/test_eia.py tests/ingestion/test_open_meteo.py

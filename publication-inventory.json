@@ -1,0 +1,991 @@
+{
+  "files": [
+    {
+      "bytes": 189,
+      "path": ".env.example",
+      "sha256": "cb2a104eb815d0d5db8777ecb7f1961a815ae20f2bc8797445ef1e70b8062485"
+    },
+    {
+      "bytes": 811,
+      "path": ".github/workflows/ci.yml",
+      "sha256": "e559ed0b55baa6cb4d017735c9dff99fce5dce4c5600f7e54bb316dbcc2ad4ff"
+    },
+    {
+      "bytes": 155,
+      "path": ".gitignore",
+      "sha256": "7fdc60bf8ebf3ef3ad2770e5174b2eaab05d4d9ea7c35ceba17384885b97d5aa"
+    },
+    {
+      "bytes": 186,
+      "path": "Dockerfile",
+      "sha256": "0d7c6adcc294ee622b68d0477f1b5939a6bf60d0c7da5d7d66f143368bd9e1f0"
+    },
+    {
+      "bytes": 1074,
+      "path": "Dockerfile.sagemaker",
+      "sha256": "8f78a01ea6574effcecaf751e0be1a34b691095dc787a84b63122ab569ddea42"
+    },
+    {
+      "bytes": 1065,
+      "path": "LICENSE",
+      "sha256": "473bb08fe6a3d184091d6651e5f4c1b8157d30e4b1293d2ab5a3155931e944be"
+    },
+    {
+      "bytes": 3446,
+      "path": "README.md",
+      "sha256": "ea272293966091dda6348ef1e24118bad33fe8cbe33729b113625e5890ba2ce8"
+    },
+    {
+      "bytes": 262,
+      "path": "ci-cd/github-actions/README.md",
+      "sha256": "89af50dda6f3374e13cdf090d32c8c246b252d75c172aaa28563e933fb21e26f"
+    },
+    {
+      "bytes": 13799,
+      "path": "ci-cd/github-actions/cd.yml",
+      "sha256": "dfe5c0cb550939b29e2b94b9f966f8fc2811861a4c423ef31b40911b31047230"
+    },
+    {
+      "bytes": 6563,
+      "path": "ci-cd/github-actions/ci.yml",
+      "sha256": "853ac77b9cea547d6a03933f029f6aebb8f82c637ca378afd274ba89c48204eb"
+    },
+    {
+      "bytes": 4927,
+      "path": "ci-cd/github-actions/dashboard-availability.yml",
+      "sha256": "3e52036f1a66005f6facd9e463d2b2a13b2a2f0522a403603b151804fb821504"
+    },
+    {
+      "bytes": 21654,
+      "path": "ci-cd/github-actions/glue-smoke.yml",
+      "sha256": "733ca04acea589317c7d9c95cc1024f97dfb0e140c2b189728b0d30a3fd7b722"
+    },
+    {
+      "bytes": 4961,
+      "path": "ci-cd/github-actions/promote-approved-model.yml",
+      "sha256": "402e207205db2685ae50f3f6f9012229f21d7fa709240570981faca88ca65fa9"
+    },
+    {
+      "bytes": 11313,
+      "path": "ci-cd/github-actions/publish-dashboard.yml",
+      "sha256": "ec94bfdb9c1cc4a54d9da27cd5429e0b583a9ec95090bb67deb87d1f62d97559"
+    },
+    {
+      "bytes": 4805,
+      "path": "ci-cd/github-actions/publish-ingestion-image.yml",
+      "sha256": "0f98dbca1d3cf3646888e7aff5fefcb0a8c4f3183d69a5c03e615ff4c143ad7f"
+    },
+    {
+      "bytes": 2934,
+      "path": "ci-cd/github-actions/publish-portfolio-snapshot.yml",
+      "sha256": "0f91034a97e6e1ce1a1dc868658adc644f6111d698d049339177a308afd64a40"
+    },
+    {
+      "bytes": 1886,
+      "path": "ci-cd/github-actions/publish-private-agent-runtime.yml",
+      "sha256": "6151c68f5813f3ae192695e93ab6421186eda6696b27743c89003996a90c8586"
+    },
+    {
+      "bytes": 4592,
+      "path": "ci-cd/github-actions/publish-production-glue.yml",
+      "sha256": "4e343c7f71093088a0f7fcf67ec58e16c744f7208f7cf46b10be187fafd1bb0e"
+    },
+    {
+      "bytes": 1345,
+      "path": "ci-cd/github-actions/publish-sagemaker-runtime.yml",
+      "sha256": "23ef3e77d93a5ba635caaaa90879194410fc1bda760082e61ff59b235659ff11"
+    },
+    {
+      "bytes": 3233,
+      "path": "ci-cd/github-actions/run-sagemaker-validation.yml",
+      "sha256": "a098347b879a380f3e283b1ee469ac175b125ba700ed724cb496caa520537621"
+    },
+    {
+      "bytes": 1315,
+      "path": "deployment/agentcore/Dockerfile",
+      "sha256": "9969abad187c7427d86b79685710fada8ac33c2761acae7bf870f8f43f429783"
+    },
+    {
+      "bytes": 6663,
+      "path": "deployment/agentcore/README.md",
+      "sha256": "52eeca75516c2d11a9937360c529266169185d407e38ebbca72172560bb2fe08"
+    },
+    {
+      "bytes": 429,
+      "path": "deployment/agentcore/requirements.txt",
+      "sha256": "83d2f05574e861ae924d2e964aa5bd87c6414eaabddd2cafdf4f65b715d414b1"
+    },
+    {
+      "bytes": 4117,
+      "path": "docs/MODEL_LIFECYCLE.md",
+      "sha256": "42edc5f782bbf429f9b04a960413a17e7f5785b5d9e849762b26a06ceb79d63d"
+    },
+    {
+      "bytes": 4262,
+      "path": "docs/PROJECT_STRUCTURE.md",
+      "sha256": "c7255b579a8c91b3beba8157b27db20055bff2932037ca6ff6db72f7022d3c0b"
+    },
+    {
+      "bytes": 6029,
+      "path": "docs/architecture/mlops-cicd.drawio",
+      "sha256": "b4a76fa3336c0254d7497e4501087befb98026349650be70c568db3bf5373e09"
+    },
+    {
+      "bytes": 207020,
+      "path": "docs/architecture/mlops-cicd.png",
+      "sha256": "91a0e2211d916685b6a3fc16fbf387fec50fba4888577c0f340239524eeba88c"
+    },
+    {
+      "bytes": 14356,
+      "path": "docs/architecture/mlops-cicd.svg",
+      "sha256": "0cadc0bb79c011b7bc8893087a30d92c194c341c00956b1e427ae9e4ceaf42cd"
+    },
+    {
+      "bytes": 5982,
+      "path": "docs/architecture/production-architecture.drawio",
+      "sha256": "b050ef956ce900440f3bd7559143748aa32e1889635ebe8082c09e7f3d2f3a70"
+    },
+    {
+      "bytes": 262543,
+      "path": "docs/architecture/production-architecture.png",
+      "sha256": "3877c95ea9596ea3b1d3d5dc5a0e447678106360bb6590a8c83fea8448c5f3b9"
+    },
+    {
+      "bytes": 15739,
+      "path": "docs/architecture/production-architecture.svg",
+      "sha256": "442988302d7d3607965d5f2872af1024b0a4500f0f8cd112b18ba30aa48b1b49"
+    },
+    {
+      "bytes": 2807,
+      "path": "docs/ingestion-contracts.md",
+      "sha256": "55c08daa8038bf26430424f18a049d93fa71f273a2b2618febe502f1f52bbc69"
+    },
+    {
+      "bytes": 304,
+      "path": "infra/terraform/README.md",
+      "sha256": "7610eefd12c1a3c63245a55408749714c42da9a7757f77ed7b93cd419c25a6be"
+    },
+    {
+      "bytes": 7729,
+      "path": "infra/terraform/agentcore.tf",
+      "sha256": "bd5b6ae2e939b4c15e3911852380cff545b8d9a94892f3201f70658c3eb28d02"
+    },
+    {
+      "bytes": 19827,
+      "path": "infra/terraform/app/agentcore.tf",
+      "sha256": "968578c0c755d596df2bc0ac9f9ee35070eed43e604270157a946ea01bc90b6c"
+    },
+    {
+      "bytes": 5506,
+      "path": "infra/terraform/app/dashboard.tf",
+      "sha256": "291a99eb55b451dff6b0623b5fddaeeaa018bf6cc20558b9339da98d6d0bdb9e"
+    },
+    {
+      "bytes": 3038,
+      "path": "infra/terraform/app/data_lake.tf",
+      "sha256": "bf20b0aa5b2445ea3a1ab8f76810a60aab2e69832f973b7747705fc152c2e53e"
+    },
+    {
+      "bytes": 3264,
+      "path": "infra/terraform/app/glue_smoke.tf",
+      "sha256": "1745b3d9dafc3ef91682a8df1ca38f302748693c36101c7101718ac9e5e71055"
+    },
+    {
+      "bytes": 10331,
+      "path": "infra/terraform/app/main.tf",
+      "sha256": "db12c555632097ab88c458fc20a47ef4bf118ff021105d9cf00259db1a3d1b67"
+    },
+    {
+      "bytes": 2487,
+      "path": "infra/terraform/app/outputs.tf",
+      "sha256": "8e69f57db3a3423c6d46776f8eaac029a822f67ddc4943d72c92fdbc96d6f931"
+    },
+    {
+      "bytes": 19904,
+      "path": "infra/terraform/app/production_pipeline.tf",
+      "sha256": "55c25bf175c4e91fcb19b7d1280dfa1df5bd36f6a11517a9bae75309b24c3482"
+    },
+    {
+      "bytes": 752,
+      "path": "infra/terraform/app/sagemaker.tf",
+      "sha256": "0f61cd0714e93bfadb6f643a9fa619dab38d30e5187cdd36ab08d2fffae1d40d"
+    },
+    {
+      "bytes": 15861,
+      "path": "infra/terraform/app/variables.tf",
+      "sha256": "5333c29a7eaacd8306866f5e0cff9dc54e929bfe575a7950f89dd33c9d3516cd"
+    },
+    {
+      "bytes": 251,
+      "path": "infra/terraform/app/versions.tf",
+      "sha256": "aa2b3a9767d4b68f5cc0c005a5b799c7247442a125418192728af282d23adf5e"
+    },
+    {
+      "bytes": 1691,
+      "path": "infra/terraform/bootstrap/main.tf",
+      "sha256": "bddcab81f7195b33540c9ac84ac2c149d103903ce205ef0e496e93ebfaefbd3d"
+    },
+    {
+      "bytes": 326,
+      "path": "infra/terraform/bootstrap/outputs.tf",
+      "sha256": "6bde14dba927c4467d615f8f9825b7b9efd43715b51215b9c1e3d84eb4d80b4b"
+    },
+    {
+      "bytes": 289,
+      "path": "infra/terraform/bootstrap/versions.tf",
+      "sha256": "237a1300c0ed9e7bf98b8a1c173c1fd0acb1fa8b79bb9d0fc8ea1bc03fd47f3f"
+    },
+    {
+      "bytes": 8863,
+      "path": "infra/terraform/glue_production.tf",
+      "sha256": "e14608f5c0f5e7c3af10864e7939646a2f970a3d95e3b613079c7d5ccd4f453b"
+    },
+    {
+      "bytes": 5851,
+      "path": "infra/terraform/glue_smoke.tf",
+      "sha256": "4d4c53e202e6189ede1523df033a554c6fe2a2ae25c32e7556b1004807e99dec"
+    },
+    {
+      "bytes": 38123,
+      "path": "infra/terraform/main.tf",
+      "sha256": "2ae763f3ebbe3d443b2690e7687234cf3012c4de36c65c37aae730d737c77e9f"
+    },
+    {
+      "bytes": 1082,
+      "path": "infra/terraform/outputs.tf",
+      "sha256": "562fe2bd61c68e67936386a1d5836928ac7163968dba3d5c2e2bc7c46962e11d"
+    },
+    {
+      "bytes": 3238,
+      "path": "infra/terraform/sagemaker.tf",
+      "sha256": "4232d507d4f85ff540a1a67b2254d0d41b8bb21bfc38fa53f1bd89b395c45766"
+    },
+    {
+      "bytes": 3508,
+      "path": "infra/terraform/variables.tf",
+      "sha256": "49075f765485a04c84bc9b0b7f35e044a505a2dd9ccb0fb36c98ede1eca7527c"
+    },
+    {
+      "bytes": 251,
+      "path": "infra/terraform/versions.tf",
+      "sha256": "1198f1e51cd179dc2bef3aa0a72ffd4085526dbc66eb7a725e7571393e07217f"
+    },
+    {
+      "bytes": 4761,
+      "path": "jobs/glue/run_production_silver_gold.py",
+      "sha256": "033a33f8028d7a04499398218b76da3e747111e20abae5bb7a4dda4196dfe1e0"
+    },
+    {
+      "bytes": 8789,
+      "path": "jobs/glue/run_silver_gold.py",
+      "sha256": "9233fcc93c3b87d384c5750f9adbde88681cd48da7679ba0d0167110598984f2"
+    },
+    {
+      "bytes": 3968,
+      "path": "jobs/glue/write_fixture.py",
+      "sha256": "d52d04046bbd5836ba586f2bf6792dee6de4cef2dd313fab6441b0f545cf9884"
+    },
+    {
+      "bytes": 6837,
+      "path": "public/assets/dashboard.css",
+      "sha256": "f036d2397bddbefb08c8888e86925e6f3a9886bbfddc2d76554d6c1f7acbddf5"
+    },
+    {
+      "bytes": 41767,
+      "path": "public/assets/dashboard.js",
+      "sha256": "b9f3cfb1087a7ebfa5c6eb1750ec9a284c6d283376c99180a16f684501412733"
+    },
+    {
+      "bytes": 16678,
+      "path": "public/index.html",
+      "sha256": "f95295ad6b6a5b5bfda2625cfe300b724224adeee4b6af373c3e90e6eacf788b"
+    },
+    {
+      "bytes": 1975,
+      "path": "pyproject.toml",
+      "sha256": "5b0cdb5efafd0602e72194f1fbe58a2ef71ebe64df218ff3d50e7049bff3be8d"
+    },
+    {
+      "bytes": 21591,
+      "path": "scripts/build_candidate_training_dataset.py",
+      "sha256": "ad8e57d034811aa6572281bff9fa945ea1892d9cdc5c02eb4beca30ba85b56c1"
+    },
+    {
+      "bytes": 6176,
+      "path": "scripts/build_sagemaker_processing_request.py",
+      "sha256": "58bbb9b1bafb0c3405f2d2ebc31df865b19ba921ccc0d3864606221d6b9227d6"
+    },
+    {
+      "bytes": 9042,
+      "path": "scripts/build_sagemaker_training_request.py",
+      "sha256": "8c7ee1efe58b5c862f194c9c6f6d41787b20e58f5679017e5fb9945d6484bb31"
+    },
+    {
+      "bytes": 822,
+      "path": "scripts/evaluate_model_challenger.py",
+      "sha256": "2d3bbf1449825e6661ed27af894915f8f41e0eb8acd73af752b07c2d610d6361"
+    },
+    {
+      "bytes": 3525,
+      "path": "scripts/package_glue_job.py",
+      "sha256": "b47946075819ea0548426d8377472c0864b108bc9e24eaddbf12d3696fbfba9b"
+    },
+    {
+      "bytes": 4693,
+      "path": "scripts/prepare_model_promotion.py",
+      "sha256": "2df42b93fa20062fca2b572b48928e1bf2cc0958fdfd65c3a6beb7b4a0f223fc"
+    },
+    {
+      "bytes": 26904,
+      "path": "scripts/publish_static_dashboard_data.py",
+      "sha256": "7a05fd17fe6268354368fc7ecb4ddcda0af994dadd39548c4a830e74a93cd328"
+    },
+    {
+      "bytes": 0,
+      "path": "src/texas_energy/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 231,
+      "path": "src/texas_energy/analytics/__init__.py",
+      "sha256": "fa45c81476ae4d3cf1960f0ac085aa7c295a9904acc77bb03acba57a9c36fb5a"
+    },
+    {
+      "bytes": 20801,
+      "path": "src/texas_energy/analytics/agent.py",
+      "sha256": "376bf7cdfe23494ee2e98c90abbb902b0571359516580d8e8f61c9bd89e522b4"
+    },
+    {
+      "bytes": 9682,
+      "path": "src/texas_energy/analytics/dashboard_tools.py",
+      "sha256": "4d2be2a66ffff5261721da11bd5815d1cef52b510668d7570ebba71d459ca981"
+    },
+    {
+      "bytes": 5324,
+      "path": "src/texas_energy/analytics/mcp_server.py",
+      "sha256": "f9ad4bd7ccb86fbbe18b9f34b2e7ff84a1f6deaa470b162766f3aef7ee02046c"
+    },
+    {
+      "bytes": 13230,
+      "path": "src/texas_energy/analytics/tools.py",
+      "sha256": "6fe9066ae4f1ef4316deca10da8df9fc2291a895a3b8926337767efe8945311e"
+    },
+    {
+      "bytes": 75,
+      "path": "src/texas_energy/application/__init__.py",
+      "sha256": "22c6fc6c8b487be2502e2595f32eae60b4051d032e024e4631b7f97f47bf6235"
+    },
+    {
+      "bytes": 14279,
+      "path": "src/texas_energy/application/api.py",
+      "sha256": "17c06ca0097b7741258da4696551b644ea91cba35d7acc49a32034925e55a26a"
+    },
+    {
+      "bytes": 295,
+      "path": "src/texas_energy/cloud/__init__.py",
+      "sha256": "270348ea27d978cddfaadbe2bf01017076c2d4eb5e8c6350b8d6e2e5916c2384"
+    },
+    {
+      "bytes": 13780,
+      "path": "src/texas_energy/cloud/agentcore.py",
+      "sha256": "36f4ac38c6e4348486fc3e1aac2a0fae394ef144953b892bb34448651af91c1c"
+    },
+    {
+      "bytes": 154,
+      "path": "src/texas_energy/cloud/agentcore_entrypoint.py",
+      "sha256": "a9ab6f5cbf1eddab357a2eaa2e95be1cf87430e66ee036cc06ef66b4b31074e2"
+    },
+    {
+      "bytes": 403,
+      "path": "src/texas_energy/data/__init__.py",
+      "sha256": "13b48b54d14d18987bc4fb5417edf49d488ba6a0ab3bbc6fef6836a7a5197b38"
+    },
+    {
+      "bytes": 6743,
+      "path": "src/texas_energy/data/coverage.py",
+      "sha256": "efca66dd100dd52bba2ec8103e5fc0ed5dd81abd4a1bdee60b80065f4da8fd33"
+    },
+    {
+      "bytes": 2089,
+      "path": "src/texas_energy/data/gold.py",
+      "sha256": "5273bfb788f2cbebdc6d9bbe4a4d079ae8cb1377e46f8d4c84d2a5efc9df9a8c"
+    },
+    {
+      "bytes": 35788,
+      "path": "src/texas_energy/data/silver.py",
+      "sha256": "0a845c184228c0701bf10da14c69f693b06c7a096adb32a26f74cad5ca47d928"
+    },
+    {
+      "bytes": 392,
+      "path": "src/texas_energy/forecast/__init__.py",
+      "sha256": "51dfb5bf3b5991056287eba17fa1e2aa1a43e4421ce7cccdd54d83e38eb66367"
+    },
+    {
+      "bytes": 1878,
+      "path": "src/texas_energy/forecast/api.py",
+      "sha256": "66c9509857f8259f20fb6612c71435a0acc905830afcff809666b772a2ebff22"
+    },
+    {
+      "bytes": 1759,
+      "path": "src/texas_energy/forecast/bilstm_curve.py",
+      "sha256": "72e680fac0eea884361226ad54b10ad9a232fa5ffed7a39d236d39c23f70d55c"
+    },
+    {
+      "bytes": 1269,
+      "path": "src/texas_energy/forecast/business_outcomes.py",
+      "sha256": "002f4935e9af5015e89d511409e83d7890c08b070d8315e4cf496387ac4a2727"
+    },
+    {
+      "bytes": 2836,
+      "path": "src/texas_energy/forecast/calibration.py",
+      "sha256": "d71ba85d59dfa45084a4fd0d8714b569918014c1ddf24030eb8914eab5b51fb2"
+    },
+    {
+      "bytes": 6750,
+      "path": "src/texas_energy/forecast/catalog.py",
+      "sha256": "539a0d5ac5da12a08069a10348e586a8001862c55dacf3e636535543e1181f9d"
+    },
+    {
+      "bytes": 15012,
+      "path": "src/texas_energy/forecast/chronos2.py",
+      "sha256": "f88528ac29b367bf4dd2e041869e58608d6c2934b45217bd4d3b2268441e8201"
+    },
+    {
+      "bytes": 2316,
+      "path": "src/texas_energy/forecast/curve_comparison.py",
+      "sha256": "0317a792826e7a3bc6e42eb9690afa33eb789f1b61a9127080a557a4a54ff971"
+    },
+    {
+      "bytes": 3406,
+      "path": "src/texas_energy/forecast/curve_contract.py",
+      "sha256": "8623bfe6fc1c4fa7392be98be8d4e1276f0f9e10bbb96d095705617b519b3644"
+    },
+    {
+      "bytes": 1093,
+      "path": "src/texas_energy/forecast/evaluation.py",
+      "sha256": "70417728743aeb5baa5804553f6f47a2b98e19ed17e93cbd59f85a9672931d86"
+    },
+    {
+      "bytes": 2830,
+      "path": "src/texas_energy/forecast/issued_curve_evaluation.py",
+      "sha256": "c84cd0de421f804755e8c26f345bd7b23826cdde42f971d4788b8e88d746581c"
+    },
+    {
+      "bytes": 2947,
+      "path": "src/texas_energy/forecast/point_in_time.py",
+      "sha256": "cd970d2e9e8312d87f7ece0cbb0ccfaa67853658c657166a8a72dbf614160381"
+    },
+    {
+      "bytes": 11809,
+      "path": "src/texas_energy/forecast/prospective.py",
+      "sha256": "21645154915fd2ec56ca8244263e635fdf4acfc0b064f3e088e6c2de193c1d40"
+    },
+    {
+      "bytes": 1619,
+      "path": "src/texas_energy/forecast/service.py",
+      "sha256": "9977c11d5974ffe64d1c2379d6461eeb787bd5df5cc16cc60624544f1d03c326"
+    },
+    {
+      "bytes": 1139,
+      "path": "src/texas_energy/forecast/specification.py",
+      "sha256": "a3c01002ebf2fefcba7ac49d5c03ecbef71242a5cb3db763d15e0dbc461513b3"
+    },
+    {
+      "bytes": 1472,
+      "path": "src/texas_energy/forecast/tracking.py",
+      "sha256": "2ad5891c41f4fab5783fe1d89c9011f3fb51e5b5a97d6780ff0d62b98613fa24"
+    },
+    {
+      "bytes": 4406,
+      "path": "src/texas_energy/forecast/training.py",
+      "sha256": "341c1a3bcfe492ebf08089871f948efe68d2a874c9c8fc89aa00f5ae22be7956"
+    },
+    {
+      "bytes": 6872,
+      "path": "src/texas_energy/forecast/unified.py",
+      "sha256": "568ef84723fca7298cf6cb2fab8d8d51de050e39790c4545b43715a277ea5848"
+    },
+    {
+      "bytes": 4225,
+      "path": "src/texas_energy/forecast/weather_archive.py",
+      "sha256": "075e6cd9125502c92254d49bfe1df7ed817fc7849de4c6c42397108d5540bf33"
+    },
+    {
+      "bytes": 4616,
+      "path": "src/texas_energy/forecast/weather_features.py",
+      "sha256": "d526839b79a4a51a38b71e971a2c62e667ae658645b7f9a71c7dfe0e2cf1f5f6"
+    },
+    {
+      "bytes": 15324,
+      "path": "src/texas_energy/forecast/weather_forecasts.py",
+      "sha256": "7543d2f9e6466afcc45e3e086ccdec548822b2d40aa74795aa330c18f044251e"
+    },
+    {
+      "bytes": 7247,
+      "path": "src/texas_energy/forecast/xgboost_curve.py",
+      "sha256": "7cf390772c9ecbcc25bd533b57fb4817b459cd7fe0d35e14b7bb057285339106"
+    },
+    {
+      "bytes": 7105,
+      "path": "src/texas_energy/forecast/xgboost_v2.py",
+      "sha256": "e58f47a7b326b65907a9c483a9531dd79f8ed7f3c7380345caf060f982205cb3"
+    },
+    {
+      "bytes": 857,
+      "path": "src/texas_energy/ingestion/__init__.py",
+      "sha256": "316b39a960fd42357563035e4b7d50dcc3539ce8e2cebfcf00c727b1a9b3071e"
+    },
+    {
+      "bytes": 26190,
+      "path": "src/texas_energy/ingestion/backfill.py",
+      "sha256": "0e29d7094de43744db608a526c8367f19174b3a091ae0c85fde0b3191df34541"
+    },
+    {
+      "bytes": 14673,
+      "path": "src/texas_energy/ingestion/bronze.py",
+      "sha256": "fc6b9a3fd3313a538977f6f1b9df88ed418ac24e606c370f37ccb88696b56209"
+    },
+    {
+      "bytes": 4583,
+      "path": "src/texas_energy/ingestion/credentials.py",
+      "sha256": "4c63aa59acccb3a6d516a6a195efa0bfb6ab9faf6961ad08a1cfcfe33434b3dc"
+    },
+    {
+      "bytes": 8569,
+      "path": "src/texas_energy/ingestion/eia.py",
+      "sha256": "2db7e403557d921350e69bc1862285a95d3121762d4f8a281ea04a1431f3a4e6"
+    },
+    {
+      "bytes": 1694,
+      "path": "src/texas_energy/ingestion/errors.py",
+      "sha256": "89166b888e77c6cf3c53fff1970d74497dc1b5a2e697ba32072363c6103ae403"
+    },
+    {
+      "bytes": 13264,
+      "path": "src/texas_energy/ingestion/http.py",
+      "sha256": "0b5868e7c61e3acc596415c4355e6a1c59d8db4754fcbb1784b961cfc0f50a5d"
+    },
+    {
+      "bytes": 13678,
+      "path": "src/texas_energy/ingestion/open_meteo.py",
+      "sha256": "b00894a6fccfa21bf8b5587889d63361e9c8551bc04b38722915edb31d9ab622"
+    },
+    {
+      "bytes": 12225,
+      "path": "src/texas_energy/ingestion/orchestration.py",
+      "sha256": "d6b847af5113f03cfdaa08a2a97baf69a2863e0805aea88d5dba3a3d9842ec19"
+    },
+    {
+      "bytes": 5142,
+      "path": "src/texas_energy/ingestion/raw.py",
+      "sha256": "8eb17e81a5e1c1a889b151ac562683bdf9177dfb8b0139af3e89e7ede0d8d136"
+    },
+    {
+      "bytes": 3804,
+      "path": "src/texas_energy/ingestion/staging.py",
+      "sha256": "bbb02a00bc31d935bb40c3dc2d779aaf94486c107dee03c99f90a78ea7495ad0"
+    },
+    {
+      "bytes": 19414,
+      "path": "src/texas_energy/lambda_handler.py",
+      "sha256": "2919590381ab7eed312a6fa7ba3d10b8253ecedb5b07cea8876437f0c49a0c65"
+    },
+    {
+      "bytes": 341,
+      "path": "src/texas_energy/ml/__init__.py",
+      "sha256": "2b49712c9791e504f0f8148c2a66128e9e63ab63f7c18bd0d787ce1dacb4ee71"
+    },
+    {
+      "bytes": 5149,
+      "path": "src/texas_energy/ml/temporal.py",
+      "sha256": "1f455bc3bf04d6addf5832c4ad5b1b7ec586219fc7ae10ffdbfe2b6f0e90f972"
+    },
+    {
+      "bytes": 58,
+      "path": "src/texas_energy/mlops/__init__.py",
+      "sha256": "db9028ab3d244b788184a86c93e6bbeda471f249790caa8f9cb58a38409c0463"
+    },
+    {
+      "bytes": 11956,
+      "path": "src/texas_energy/mlops/model_lifecycle.py",
+      "sha256": "541d52f3f77ea3c1d0e831fd1f44369eb5817983fe0e896299cdff02938db4f3"
+    },
+    {
+      "bytes": 456,
+      "path": "src/texas_energy/retrieval/__init__.py",
+      "sha256": "3046373639f60b9440917153079b35896b085254cbe06ee428e0ca7246b49cab"
+    },
+    {
+      "bytes": 23850,
+      "path": "src/texas_energy/retrieval/local.py",
+      "sha256": "9823ef53e469edb7ce3e6d8f6f269fa0d40b6e4428938f3578805d04227e2b79"
+    },
+    {
+      "bytes": 68,
+      "path": "src/texas_energy/sagemaker/__init__.py",
+      "sha256": "6117ee04ec93d25eb6e3fc38577045a38794851b21717b5856ed8f4c5d71ec0a"
+    },
+    {
+      "bytes": 7118,
+      "path": "src/texas_energy/sagemaker/runtime.py",
+      "sha256": "c5df602d756a310f1327ff2fa3b3f40ae61047da52c2b239348a0f10486a3500"
+    },
+    {
+      "bytes": 11893,
+      "path": "src/texas_energy/sagemaker/training_runtime.py",
+      "sha256": "fd2d8cd609d38fcf7922d69c62d41d1d1cc59452ad494f054e9de47425c59095"
+    },
+    {
+      "bytes": 15196,
+      "path": "src/texas_energy/sagemaker/unified_runtime.py",
+      "sha256": "2137004ffbe7088565a61dbaf3dabaf5b47475ddc1959118ad875161a7447d48"
+    },
+    {
+      "bytes": 186,
+      "path": "src/texas_energy/spark/__init__.py",
+      "sha256": "e3980e8b6d38b95d8b5ba70075c2c2e9ea8d76c85610d5649f9bdd06c9bbe568"
+    },
+    {
+      "bytes": 19646,
+      "path": "src/texas_energy/spark/dashboard_evaluation.py",
+      "sha256": "76dccb5b2a7d0451fbdedfb3b2c9afd8707b13492c0ff45583d0d9b99c0eaa65"
+    },
+    {
+      "bytes": 18343,
+      "path": "src/texas_energy/spark/forecast_input.py",
+      "sha256": "3712d1fa83df62be5c8a1d38807c37e0dcb7054fc6a7e2ce8185f18f479ee0aa"
+    },
+    {
+      "bytes": 32965,
+      "path": "src/texas_energy/spark/gold.py",
+      "sha256": "a80a280687e7134672f2d204aa405f257c2659f169755cf335ab30037b97211b"
+    },
+    {
+      "bytes": 7862,
+      "path": "src/texas_energy/spark/production.py",
+      "sha256": "1885dd146dec77a1c99d40d83cbed5853d0aa598a9d8d68332996df29f2fafd8"
+    },
+    {
+      "bytes": 17243,
+      "path": "src/texas_energy/spark/silver.py",
+      "sha256": "29a304f68d51612e44d097e7403a33734764e7fc1be0794fc8bf4f21011c521d"
+    },
+    {
+      "bytes": 24,
+      "path": "tests/data/__init__.py",
+      "sha256": "2bad8a266d6740b964376389d1271d0766c049cb8cc2aaea1c42182e111bfc6c"
+    },
+    {
+      "bytes": 5102,
+      "path": "tests/data/test_coverage.py",
+      "sha256": "6330f91aa7aba87fd093a8e6d4269717f8d2ce2d0dee1e6ee1d9467c07d86338"
+    },
+    {
+      "bytes": 885,
+      "path": "tests/data/test_gold.py",
+      "sha256": "ae2162f564aba8f6f7ccf95ab2fe716dec2bb93b24789bd92c2c3e2b1cbf6127"
+    },
+    {
+      "bytes": 12328,
+      "path": "tests/data/test_silver.py",
+      "sha256": "ce037ab0a5a4066530df37cb7a9a88a0b346aab272c20998e283559bba1ee2d3"
+    },
+    {
+      "bytes": 4381,
+      "path": "tests/forecast/test_agentcore_cloud.py",
+      "sha256": "17f9aacb04ee78eb34eaab1ec016e80b0ce6acd1f3f3edf4928e823a24929185"
+    },
+    {
+      "bytes": 495,
+      "path": "tests/forecast/test_business_outcomes.py",
+      "sha256": "5da3538779d0026e90dae613c939e837ea3697072bbf3b3625aee7859e1133bf"
+    },
+    {
+      "bytes": 2274,
+      "path": "tests/forecast/test_catalog.py",
+      "sha256": "b1154b7e29ab700ff08a5a313e651b78da29d2c68737abb5798ad3d14ac056d6"
+    },
+    {
+      "bytes": 5228,
+      "path": "tests/forecast/test_chronos2.py",
+      "sha256": "70c7bca5620d5f01e96ee3df1c6530779a645c3aedf41a66bd21b4233780f3c8"
+    },
+    {
+      "bytes": 1502,
+      "path": "tests/forecast/test_curve_comparison.py",
+      "sha256": "f7714095e1a9d02ef056ab347fdd1b1e4debc217391fa11d2e8d9b1097d4c74b"
+    },
+    {
+      "bytes": 1319,
+      "path": "tests/forecast/test_curve_contract.py",
+      "sha256": "0b750f2187c11bf702c4377a36c6211880cdc5c18d1a5ddc32a81e0448311e46"
+    },
+    {
+      "bytes": 4609,
+      "path": "tests/forecast/test_dashboard_agent_tools.py",
+      "sha256": "4f66d77d488dda06eabdac2e4da1c07ced4971b6aaf52238d4f9ba908a554b9e"
+    },
+    {
+      "bytes": 3220,
+      "path": "tests/forecast/test_dashboard_evaluation.py",
+      "sha256": "8c77b16ca57804681396c78d0bb0a764dfeafcc23bc130c0f94253dd7bd85b3d"
+    },
+    {
+      "bytes": 3060,
+      "path": "tests/forecast/test_dashboard_gold_delta.py",
+      "sha256": "da2fb5d5e440be633a07865b2ed5c37562eaad4f14ef78262f6bca5ec21f98a3"
+    },
+    {
+      "bytes": 10576,
+      "path": "tests/forecast/test_energy_agent.py",
+      "sha256": "7fddb86406cd19e9c8f91d87c6f12f8dd8acab59f61aba36c0c9dae57569751f"
+    },
+    {
+      "bytes": 1226,
+      "path": "tests/forecast/test_evaluation.py",
+      "sha256": "308ffb1e8374170976e256aacc37acb8af837ca2cf550879b0ce611ca6cdf0e8"
+    },
+    {
+      "bytes": 2033,
+      "path": "tests/forecast/test_final_training_split_scripts.py",
+      "sha256": "bf3eab0cdaf203e17837b6bdcc0391a7a0aa3860682b82f2195e09b9c9ca69d5"
+    },
+    {
+      "bytes": 2083,
+      "path": "tests/forecast/test_historical_weather_chart.py",
+      "sha256": "cdeabf18296758b2ed81df184653c3fec68d300da6ddcaf0abd887282ec56ce7"
+    },
+    {
+      "bytes": 1554,
+      "path": "tests/forecast/test_issued_curve_evaluation.py",
+      "sha256": "23462b15ca51bd135ff0513085762c6f16387954458b9db54250a8efb9106318"
+    },
+    {
+      "bytes": 907,
+      "path": "tests/forecast/test_point_in_time.py",
+      "sha256": "aa571c440014e527e9993848e6419de18bb8431dfcf6e52d8f4b83680a0b03c7"
+    },
+    {
+      "bytes": 4964,
+      "path": "tests/forecast/test_private_analytics_tools.py",
+      "sha256": "bc06985948d1c98a692ff4d06b28f724d01bbcf71f49991ce63045d0cbaf5b9e"
+    },
+    {
+      "bytes": 17341,
+      "path": "tests/forecast/test_prospective.py",
+      "sha256": "25d43d8de1a384a08c968cc03b0c77999fc73b2b777e4d00c5ef31f6b2519cfc"
+    },
+    {
+      "bytes": 6931,
+      "path": "tests/forecast/test_prospective_calibration.py",
+      "sha256": "6162ed8e3286183e514080b5c60580e91237c09f23f8c477d0dbdf480de56da1"
+    },
+    {
+      "bytes": 2750,
+      "path": "tests/forecast/test_static_dashboard.py",
+      "sha256": "84bf12c8b38e950e9631dd9ea00b2ff914cb917e9a570e1913deea7df3b5c7d2"
+    },
+    {
+      "bytes": 2587,
+      "path": "tests/forecast/test_static_publisher.py",
+      "sha256": "3fc6d00cb32793640d5bf66ab0fdf8683c664a77e67d3b34b015a6b115b63df2"
+    },
+    {
+      "bytes": 307,
+      "path": "tests/forecast/test_tracking.py",
+      "sha256": "240e2de430fa65a4b90de4022de83e0f481882ab65abe1d4008cb921b1a16435"
+    },
+    {
+      "bytes": 1861,
+      "path": "tests/forecast/test_training.py",
+      "sha256": "3c5e9e81caf69eac5c86e00b5ae6f6994f58dce19fe34bd73674921f56e96bee"
+    },
+    {
+      "bytes": 2466,
+      "path": "tests/forecast/test_unified.py",
+      "sha256": "e142bcf94a96441e94bc695644fced74d1083b6983d435af275cb026e98c5165"
+    },
+    {
+      "bytes": 1581,
+      "path": "tests/forecast/test_weather_archive.py",
+      "sha256": "6b0aec82631119b12b86c62c6024758676d4aebdd0c038c53488c195c30c9c05"
+    },
+    {
+      "bytes": 2872,
+      "path": "tests/forecast/test_weather_features.py",
+      "sha256": "f3d51f7ba6254c8a00f643f9b136204d95c1293ac49240f17ea26a32e2bb52e7"
+    },
+    {
+      "bytes": 4052,
+      "path": "tests/forecast/test_weather_forecasts.py",
+      "sha256": "0cf75cdea0af9b107bd0f0e372187726c8e72eb2fde672738d481f5b44c6ccda"
+    },
+    {
+      "bytes": 2111,
+      "path": "tests/forecast/test_xgboost_curve.py",
+      "sha256": "e3c527c7908f44d17ae9b9ef1323cc1318e7a1ac8b4f16b98307d1a284ec194f"
+    },
+    {
+      "bytes": 2275,
+      "path": "tests/forecast/test_xgboost_v2.py",
+      "sha256": "d01fb25d4cc2334e95b7066f1fa2dde5b14e706158415b9daebc3bccc7388f87"
+    },
+    {
+      "bytes": 43,
+      "path": "tests/ingestion/__init__.py",
+      "sha256": "d871ed2acb3edaf2cec5c22c02d953b6c23de15b5b7d563cdfe43ddb025798c6"
+    },
+    {
+      "bytes": 1136,
+      "path": "tests/ingestion/conftest.py",
+      "sha256": "f7ee7d0aa53cc35f6692d21e11a0451cdc21844bc274e9bce77bad46abcb37ab"
+    },
+    {
+      "bytes": 13581,
+      "path": "tests/ingestion/test_backfill.py",
+      "sha256": "eb4605aff2e8a10fa75ac21a086ce9a2a7d02eba69f4b1b0a9de7f4f5ab3fbdc"
+    },
+    {
+      "bytes": 16772,
+      "path": "tests/ingestion/test_bronze.py",
+      "sha256": "f17518549a850149e23106ba9931d0675aaa46104fbfeb02f686d3f634b85ac5"
+    },
+    {
+      "bytes": 2942,
+      "path": "tests/ingestion/test_credentials.py",
+      "sha256": "f164a72690cd9671c4127e7ab0c78c10a4a30d90db9ef72f220ccdff282b1755"
+    },
+    {
+      "bytes": 5397,
+      "path": "tests/ingestion/test_eia.py",
+      "sha256": "b21de13716e50c95d78d3c4d3156259fcbb3915d061e79dae63edb77a6e9a273"
+    },
+    {
+      "bytes": 9764,
+      "path": "tests/ingestion/test_http_and_raw.py",
+      "sha256": "98831155f0a77ce642ebde31bb78fb731089e4626cfb92ea9b2d9f463f3d849b"
+    },
+    {
+      "bytes": 10429,
+      "path": "tests/ingestion/test_live_contract_smoke.py",
+      "sha256": "dca5d4a122c5168b3cdfa253d44e98f61580a170cdb83d6754ceb9220bb3a8b7"
+    },
+    {
+      "bytes": 1440,
+      "path": "tests/ingestion/test_notebook_eia_credential_comparison.py",
+      "sha256": "6e82a9fc903ad38d93c4d27ea8d41d29bec29799c9d4291b25a97b987919a627"
+    },
+    {
+      "bytes": 7405,
+      "path": "tests/ingestion/test_open_meteo.py",
+      "sha256": "69cc64b3361b9f300f904249abf7dc765a9f0b86a5997c8fb8f51d3c42cdf531"
+    },
+    {
+      "bytes": 15394,
+      "path": "tests/ingestion/test_orchestration.py",
+      "sha256": "337956eb98f12e00ca250d9325883c4af596edfc80a2d4a7c09e291dd6406b24"
+    },
+    {
+      "bytes": 1565,
+      "path": "tests/ingestion/test_staging.py",
+      "sha256": "fedbd0f6027baa4eb7ac4a173e05e868a345a9fc953938a7f27b63f82b122193"
+    },
+    {
+      "bytes": 2086,
+      "path": "tests/ml/test_temporal.py",
+      "sha256": "24865c25392b54b0df5db3e1cc07e2afd699506b6cb4bbb5379b1b152082175e"
+    },
+    {
+      "bytes": 6475,
+      "path": "tests/retrieval/test_local_rag.py",
+      "sha256": "326d4d1882bfb4e5c38a06327a7111fd918bab522a23da6bba7e97c027bb329d"
+    },
+    {
+      "bytes": 36,
+      "path": "tests/spark/__init__.py",
+      "sha256": "f7e6088146250fedd3038c2f499427c076dfe2462ae72c4769e2ad4ff4cfcd82"
+    },
+    {
+      "bytes": 684,
+      "path": "tests/spark/test_glue_compat.py",
+      "sha256": "f289ef67d943902fbf104a0b1e9d56816c47d74a9f44d039d41c33c9b0725923"
+    },
+    {
+      "bytes": 18023,
+      "path": "tests/spark/test_gold.py",
+      "sha256": "724fb6ca643f61dec6539031fefafc275f6a66554e9791e03e75de9763ee69a4"
+    },
+    {
+      "bytes": 10497,
+      "path": "tests/spark/test_silver.py",
+      "sha256": "7f43dbd097991667a57ac20b160f46432be06700720fb1c3617b6cded0cb855c"
+    },
+    {
+      "bytes": 855,
+      "path": "tests/test_bilstm_cuda_requirement.py",
+      "sha256": "7ae85f727e5564b4ea40131f64a6ac30e987bd74a0808b7abe9dde4f5d8c84af"
+    },
+    {
+      "bytes": 7088,
+      "path": "tests/test_build_candidate_training_dataset.py",
+      "sha256": "62cd6e17ee47262bd2a1b636700a5389ba8a40e5ff6d177badeefca36edf2e1d"
+    },
+    {
+      "bytes": 4030,
+      "path": "tests/test_glue_entrypoint.py",
+      "sha256": "7f8dcf359a39233ea837698b8d6322a1f71de7046d4ea91c64db195031fc3cb2"
+    },
+    {
+      "bytes": 1662,
+      "path": "tests/test_glue_packaging.py",
+      "sha256": "e5b18a0c5be1eadfcdd944d62cc5ba58fe1d65fcadf99aac4fc7dce04748c7b3"
+    },
+    {
+      "bytes": 13915,
+      "path": "tests/test_lambda_handler.py",
+      "sha256": "604212a00186e5872472ea9d84698ca0cae538513cf7f8bf9beabad2d0884606"
+    },
+    {
+      "bytes": 4876,
+      "path": "tests/test_model_lifecycle.py",
+      "sha256": "425f0a55a98d15cc7e1c972de5c723b14a6688af8fdc1982bc2a721100af4be2"
+    },
+    {
+      "bytes": 103,
+      "path": "tests/test_package.py",
+      "sha256": "45c6aaf0eeccc18a6d4e8b1381fcb69a8b1db4e2419dcee27356aa43d9842644"
+    },
+    {
+      "bytes": 2292,
+      "path": "tests/test_prepare_sagemaker_validation_assets.py",
+      "sha256": "86789ba6e83273cb0aae3c3eb50c7a1ac7ece553a938e4c52c5991c1dc668f1f"
+    },
+    {
+      "bytes": 4987,
+      "path": "tests/test_production_pipeline_contract.py",
+      "sha256": "60b69f3b2eba7f5d9f9b51d31b04543fb091933be280a6e2404033dce8239ab7"
+    },
+    {
+      "bytes": 2924,
+      "path": "tests/test_sagemaker_processing_request.py",
+      "sha256": "9bd9aaf15a9968615ac023408c9170835ca0bed5957ab4a4a65e508ea797f694"
+    },
+    {
+      "bytes": 5305,
+      "path": "tests/test_sagemaker_runtime.py",
+      "sha256": "4c638cb7c750c00877541eb90834c7e326d307c892d620b27980fafd43730f2a"
+    },
+    {
+      "bytes": 4890,
+      "path": "tests/test_sagemaker_training_request.py",
+      "sha256": "e1db3715f333de03aa61dc98a8735fd15e64834cb6d99d598bf3e79f33d45385"
+    },
+    {
+      "bytes": 3430,
+      "path": "tests/test_sagemaker_training_runtime.py",
+      "sha256": "0bffe8ea25cfd3d5188ee4c01f655ddb430d09502e4f23cb458a8b8614287f9f"
+    }
+  ],
+  "schema_version": "1.0",
+  "snapshot_sha256": "680a8e28345e06bfcf771d99d0d05d66e64035d1ee7b669c4d4dc145b74065d1"
+}

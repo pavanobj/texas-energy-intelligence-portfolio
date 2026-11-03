@@ -1,0 +1,226 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build ".[test]"
+
+      - name: Run portable tests
+        run: pytest -q --ignore=tests/spark
+
+      - name: Build package
+        run: python -m build
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: texas-energy-package
+          path: dist/*
+
+  glue-contracts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install portable Glue contract dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[test]"
+
+      - name: Verify Glue entrypoint syntax and portable contracts
+        run: |
+          python -m py_compile jobs/glue/run_silver_gold.py jobs/glue/run_production_silver_gold.py scripts/package_glue_job.py
+          pytest -q tests/test_glue_entrypoint.py tests/test_glue_packaging.py tests/spark/test_glue_compat.py tests/test_production_pipeline_contract.py tests/forecast/test_dashboard_evaluation.py
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.16.4
+
+      - name: Check Terraform formatting
+        working-directory: infra/terraform
+        run: terraform fmt -check -recursive
+
+      - name: Initialize Terraform without a backend
+        working-directory: infra/terraform
+        run: terraform init -backend=false
+
+      - name: Validate Terraform configuration
+        working-directory: infra/terraform
+        run: terraform validate
+
+  terraform-plan:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: terraform-validate
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: terraform-main-state
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.16.4
+
+      - name: Configure AWS credentials for planning
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence
+          aws-region: us-east-1
+          allowed-account-ids: "<AWS_ACCOUNT_ID>"
+
+      - name: Initialize Terraform backend
+        working-directory: infra/terraform
+        run: terraform init -input=false
+
+      - name: Create Terraform plan
+        working-directory: infra/terraform
+        run: |
+          set +e
+          # This CI role is deliberately read-only for managed resources. The
+          # plan checks reviewed configuration against the protected remote
+          # state; drift refresh remains a controlled deployment operation.
+          terraform plan -input=false -lock-timeout=5m -refresh=false -var-file=agentcore.auto.tfvars -detailed-exitcode
+          exit_code=$?
+
+          if [ "$exit_code" -eq 1 ]; then
+            exit 1
+          fi
+
+          exit 0
+
+  terraform-app-plan:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: terraform-app-validate
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: terraform-application-state
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials for application state planning
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: us-east-1
+          allowed-account-ids: "<AWS_ACCOUNT_ID>"
+
+      - name: Initialize application Terraform backend
+        working-directory: infra/terraform/app
+        run: terraform init -input=false
+
+      - name: Create no-refresh application state plan
+        working-directory: infra/terraform/app
+        run: |
+          set +e
+          terraform plan -input=false -lock-timeout=5m -refresh=false -var-file=agentcore.auto.tfvars -detailed-exitcode
+          exit_code=$?
+
+          if [ "$exit_code" -eq 1 ]; then
+            exit 1
+          fi
+
+          exit 0
+
+  terraform-app-validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.16.4
+
+      - name: Check application Terraform formatting
+        working-directory: infra/terraform/app
+        run: terraform fmt -check -recursive
+
+      - name: Initialize application Terraform without a backend
+        working-directory: infra/terraform/app
+        run: terraform init -backend=false
+
+      - name: Validate application Terraform configuration
+        working-directory: infra/terraform/app
+        run: terraform validate
+
+  aws-oidc-smoke-test:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence
+          aws-region: us-east-1
+          allowed-account-ids: "<AWS_ACCOUNT_ID>"
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity

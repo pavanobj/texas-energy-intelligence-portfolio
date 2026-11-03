@@ -1,0 +1,89 @@
+name: Publish Production Glue Revision
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: "Immutable revision label, for example r1."
+        required: true
+        type: string
+      expected_package_sha256:
+        description: "Reviewed SHA-256 for texas_energy_glue_job.zip."
+        required: true
+        type: string
+      expected_entrypoint_sha256:
+        description: "Reviewed SHA-256 for run_production_silver_gold.py."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.repository == 'example-org/texas-energy-intelligence-portfolio' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: production-glue-artifact-${{ inputs.revision }}
+      cancel-in-progress: false
+    env:
+      AWS_REGION: us-east-1
+      BUCKET: texas-energy-data-lake-example
+      PREFIX: artifacts/glue/production/v1/revisions/${{ inputs.revision }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate reviewed immutable revision inputs
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.revision }}" =~ ^r[0-9]+$ ]]
+          [[ "${{ inputs.expected_package_sha256 }}" =~ ^[a-f0-9]{64}$ ]]
+          [[ "${{ inputs.expected_entrypoint_sha256 }}" =~ ^[a-f0-9]{64}$ ]]
+      - name: Build deterministic package and entrypoint
+        run: |
+          set -euo pipefail
+          python scripts/package_glue_job.py --output "$RUNNER_TEMP/texas_energy_glue_job.zip"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          source = Path("jobs/glue/run_production_silver_gold.py")
+          target = Path(os.environ["RUNNER_TEMP"]) / "run_production_silver_gold.py"
+          target.write_bytes(source.read_text(encoding="utf-8").replace("\r\n", "\n").encode("utf-8"))
+          PY
+          package_sha="$(sha256sum "$RUNNER_TEMP/texas_energy_glue_job.zip" | awk '{print $1}')"
+          entrypoint_sha="$(sha256sum "$RUNNER_TEMP/run_production_silver_gold.py" | awk '{print $1}')"
+          echo "package_sha256=$package_sha"
+          echo "entrypoint_sha256=$entrypoint_sha"
+          test "$package_sha" = "${{ inputs.expected_package_sha256 }}"
+          test "$entrypoint_sha" = "${{ inputs.expected_entrypoint_sha256 }}"
+          printf '{"schema_version":"production-glue-artifact-v1","git_sha":"%s","revision":"%s","package_sha256":"%s","entrypoint_sha256":"%s"}\n' \
+            "$GITHUB_SHA" "${{ inputs.revision }}" "$package_sha" "$entrypoint_sha" > "$RUNNER_TEMP/manifest.json"
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: us-east-1
+          allowed-account-ids: "<AWS_ACCOUNT_ID>"
+      - name: Require an unused immutable destination
+        run: |
+          set -euo pipefail
+          aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "$PREFIX/" --output json | jq -e '((.Contents // []) | length) == 0'
+      - name: Publish package and entrypoint without overwrite
+        run: |
+          set -euo pipefail
+          aws s3api put-object --bucket "$BUCKET" --key "$PREFIX/texas_energy_glue_job.zip" --body "$RUNNER_TEMP/texas_energy_glue_job.zip" --server-side-encryption AES256 --if-none-match '*'
+          aws s3api put-object --bucket "$BUCKET" --key "$PREFIX/run_production_silver_gold.py" --body "$RUNNER_TEMP/run_production_silver_gold.py" --server-side-encryption AES256 --if-none-match '*'
+      - name: Verify object bytes then publish manifest last
+        run: |
+          set -euo pipefail
+          aws s3api get-object --bucket "$BUCKET" --key "$PREFIX/texas_energy_glue_job.zip" "$RUNNER_TEMP/verified-package.zip" >/dev/null
+          aws s3api get-object --bucket "$BUCKET" --key "$PREFIX/run_production_silver_gold.py" "$RUNNER_TEMP/verified-entrypoint.py" >/dev/null
+          test "$(sha256sum "$RUNNER_TEMP/verified-package.zip" | awk '{print $1}')" = "${{ inputs.expected_package_sha256 }}"
+          test "$(sha256sum "$RUNNER_TEMP/verified-entrypoint.py" | awk '{print $1}')" = "${{ inputs.expected_entrypoint_sha256 }}"
+          aws s3api put-object --bucket "$BUCKET" --key "$PREFIX/manifest.json" --body "$RUNNER_TEMP/manifest.json" --server-side-encryption AES256 --if-none-match '*'
+          cat "$RUNNER_TEMP/manifest.json" >> "$GITHUB_STEP_SUMMARY"

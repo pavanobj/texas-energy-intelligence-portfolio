@@ -1,0 +1,25 @@
+name: Publish Unified SageMaker Runtime
+on:
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  build-and-push:
+    if: github.repository == 'example-org/texas-energy-intelligence-portfolio' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions: { contents: read, id-token: write }
+    env: { AWS_REGION: us-east-1, ECR_REPOSITORY: texas-energy-sagemaker-unified, IMAGE_TAG: '${{ github.sha }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: us-east-1
+          allowed-account-ids: '<AWS_ACCOUNT_ID>'
+      - id: login
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build AMD64 batch runtime
+        run: docker build --platform linux/amd64 --provenance=false -f Dockerfile.sagemaker -t ${{ steps.login.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG .
+      - name: Push immutable runtime
+        run: docker push ${{ steps.login.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
+      - name: Record digest
+        run: aws ecr describe-images --repository-name "$ECR_REPOSITORY" --image-ids imageTag="$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text >> "$GITHUB_STEP_SUMMARY"

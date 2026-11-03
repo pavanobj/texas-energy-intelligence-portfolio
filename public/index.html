@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Published ERCOT demand forecasts, evaluation evidence, and weather context." />
+    <title>Texas Energy Intelligence</title>
+    <link rel="stylesheet" href="./assets/dashboard.css" />
+    <style>
+      .prospective-panel { border-top: 4px solid #087e8b; }
+      .issued-weather { border-top: 1px solid #dce3ed; margin-top: 22px; padding-top: 20px; }
+      .weather-grid { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 10px; margin-top: 14px; }
+      .weather-card { border: 1px solid #263954; border-radius: 8px; padding: 12px; background: #122239; font-size: .8rem; }
+      .weather-card h4 { margin: 0 0 6px; font-size: .87rem; }
+      .weather-card p { margin: 3px 0; color: #5b687b; }
+      .view-toggle { display: flex; gap: 8px; margin-bottom: 18px; }
+      .view-toggle button { border: 1px solid #c6d5e8; border-radius: 999px; background: #fff; color: #14233a; cursor: pointer; font: inherit; padding: 8px 12px; }
+      .view-toggle button[aria-pressed="true"] { background: #087e8b; border-color: #087e8b; color: #fff; }
+      .historical-heading { margin: 12px 0 16px; }
+      .source-footer { max-width: 1100px; margin: 28px auto 0; padding: 22px 24px; font-size: .78rem; line-height: 1.55; color: #526174; border-top: 1px solid #dce3ed; }
+      .source-footer p { margin: 0 0 8px; }
+      .source-footer a { color: #0b6380; }
+      @media (max-width: 980px) { .weather-grid { grid-template-columns: repeat(3, 1fr); } }
+      @media (max-width: 500px) { .weather-grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to dashboard content</a>
+    <header class="site-header">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">TE</span><span>Texas Energy Intelligence</span></div>
+      <div class="header-meta"><span id="status-pill" class="status-pill">Static verified data</span><span id="publication-time">Loading publication…</span></div>
+    </header>
+
+    <main id="main" class="page-shell">
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">ERCOT electricity demand</p>
+          <h1 id="page-title">ERCOT demand forecast</h1>
+          <p id="replay-disclosure" class="lead">Loading published forecast details…</p>
+        </div>
+        <button id="provenance-button" class="secondary-button" type="button" aria-expanded="false" aria-controls="provenance-panel">View provenance</button>
+      </section>
+
+      <section id="error-state" class="notice error hidden" role="alert"></section>
+      <section id="loading-state" class="notice" aria-live="polite">Loading published forecast data…</section>
+
+      <section id="dashboard" class="hidden">
+        <nav id="dashboard-view-toggle" class="view-toggle hidden" aria-label="Dashboard view">
+          <button id="show-prospective" type="button" aria-pressed="true">Latest prospective forecast</button>
+          <button id="show-prospective-performance" type="button" aria-pressed="false">Last 3 forecast days</button>
+          <button id="show-rolling" type="button" aria-pressed="false">14-day issued-forecast evaluation</button>
+          <button id="show-historical" type="button" aria-pressed="false">July historical experiment</button>
+        </nav>
+
+        <section id="prospective-panel" class="panel prospective-panel hidden" aria-labelledby="prospective-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Forecast overview</p>
+              <h2 id="prospective-heading">Three-model outlook for the next 24 hours</h2>
+              <p id="prospective-disclosure" class="explain"></p>
+            </div>
+            <p class="legend-line"><span class="legend actual"></span>Available EIA actual <span class="legend xgb"></span>XGBoost <span class="legend bilstm"></span>Bi-LSTM <span class="legend chronos"></span>Chronos-2</p>
+          </div>
+          <div class="metric-grid prospective-metrics" aria-label="Prospective forecast summary">
+            <article class="metric-card"><p>Forecast issue time</p><h2 id="prospective-origin">—</h2><span id="prospective-target-window">—</span></article>
+            <article class="metric-card"><p>Model execution / data refresh</p><h2 id="prospective-execution">—</h2><span id="prospective-freshness">—</span></article>
+            <article class="metric-card"><p>Latest actual coverage</p><h2 id="prospective-coverage">Pending</h2><span id="prospective-pending">Awaiting source observations</span></article>
+            <article class="metric-card"><p>Forecast target range</p><h2 id="prospective-target-short">24 hours</h2><span id="prospective-target-window">UTC targets</span></article>
+          </div>
+          <div class="chart-wrap hero-chart"><canvas id="prospective-chart" role="img" aria-label="ERCOT demand forecast with XGBoost, Bi-LSTM, Chronos-2, and available EIA actuals"></canvas><div id="prospective-tooltip" class="chart-tooltip hidden" role="status"></div></div>
+          <p class="chart-caption">All saved model curves are shown in MW. Observations appear only after EIA records are available. Pending hours remain unscored.</p>
+          <div id="forecast-model-peaks" class="model-peaks" aria-label="Model peak demand comparison"></div>
+          <section id="last-scored-issue" class="last-scored hidden" aria-labelledby="last-scored-heading"><div><p class="eyebrow">Last scored prospective issue</p><h3 id="last-scored-heading">Observed demand comparison</h3><p id="last-scored-note" class="explain"></p></div><div class="table-scroll"><table><thead><tr><th>Observed peak</th><th>XGBoost</th><th>Bi-LSTM</th><th>Chronos-2</th></tr></thead><tbody id="last-scored-body"></tbody></table></div></section>
+          <div class="table-scroll"><table><thead><tr><th>Model</th><th>Variant</th><th>Matched hours</th><th>MAE</th><th>RMSE</th><th>Bias</th></tr></thead><tbody id="prospective-performance-body"></tbody></table></div>
+          <section class="issued-weather" aria-labelledby="issued-weather-heading"><p class="eyebrow">Issued weather inputs</p><h3 id="issued-weather-heading">Five-city ECMWF IFS forecast summary</h3><p id="issued-weather-note" class="explain"></p><div id="issued-weather-content" class="weather-grid"></div></section>
+        </section>
+
+        <section id="prospective-rolling" class="hidden" aria-labelledby="prospective-rolling-heading">
+          <div class="section-heading historical-heading"><div><p class="eyebrow">Recent prospective evidence</p><h2 id="prospective-rolling-heading">Completed prospective forecast days</h2><p class="explain">The current forecast is excluded. Each earlier issue is shown as published, and scores use only later genuine EIA observations.</p></div></div>
+          <section class="panel"><div class="section-heading compact"><div><p class="eyebrow">Issued forecast comparison</p><h3>Actual versus forecast curves</h3></div><label>Window <select id="prospective-window"><option value="3">Last 3 completed issues</option><option value="7">Last 7 completed issues</option><option value="14">Last 14 completed issues</option></select></label><label>Ending forecast issue <select id="prospective-issue"></select></label></div><p class="legend-line"><span class="legend actual"></span>EIA actual <span class="legend xgb"></span>XGBoost <span class="legend bilstm"></span>Bi-LSTM <span class="legend chronos"></span>Chronos-2</p><div class="chart-wrap"><canvas id="prospective-rolling-chart" role="img" aria-label="Consecutive prospectively issued ERCOT forecasts and available EIA actual demand"></canvas><div id="prospective-rolling-tooltip" class="chart-tooltip hidden" role="status"></div></div><p id="prospective-rolling-note" class="chart-caption"></p><div class="table-scroll"><table><thead><tr><th>Model</th><th>Matched hours</th><th>MAE</th><th>RMSE</th><th>Bias</th></tr></thead><tbody id="prospective-rolling-metrics"></tbody></table></div></section>
+          <section class="panel"><div class="section-heading compact"><div><p class="eyebrow">Five-city weather</p><h3>Issued temperature versus observed temperature</h3></div><label>City <select id="prospective-city"></select></label></div><p class="legend-line"><span class="legend xgb"></span>Issued ECMWF IFS <span class="legend actual"></span>Observed Open-Meteo</p><div class="chart-wrap small"><canvas id="prospective-weather-chart" role="img" aria-label="Issued and available observed temperature for a Texas city"></canvas><div id="prospective-weather-tooltip" class="chart-tooltip hidden" role="status"></div></div><p id="prospective-weather-note" class="chart-caption"></p></section>
+        </section>
+
+        <section id="historical-experiment" class="historical-experiment hidden" aria-labelledby="historical-experiment-heading">
+        <div class="section-heading historical-heading"><div><p class="eyebrow">Selectable historical experiment</p><h2 id="historical-experiment-heading">July replay evaluation</h2><p class="explain">This separate experiment is retained for model research; it is not the current published forecast.</p></div></div>
+        <section class="metric-grid" aria-label="Historical replay forecast summary">
+          <article class="metric-card"><p>Selected model</p><h2 id="model-name">—</h2><span id="model-detail">Historical evaluation selection</span></article>
+          <article class="metric-card"><p>Predicted peak demand</p><h2 id="peak-demand">—</h2><span id="peak-demand-gw">—</span></article>
+          <article class="metric-card"><p>Predicted peak hour</p><h2 id="peak-hour">—</h2><span id="peak-hour-local">—</span></article>
+          <article class="metric-card"><p>Average forecast demand</p><h2 id="average-demand">—</h2><span>Across the 24-hour replay</span></article>
+        </section>
+
+        <section class="panel chart-panel" aria-labelledby="forecast-heading">
+          <div class="section-heading"><div><p class="eyebrow">Historical replay</p><h2 id="forecast-heading">24-hour demand curve</h2><p id="forecast-subtitle">Actuals and saved model predictions are aligned in UTC.</p></div><fieldset class="model-switch"><legend>Displayed model</legend><div id="model-toggle" role="group" aria-label="Choose prediction curve"></div></fieldset></div>
+          <div class="chart-wrap"><canvas id="forecast-chart" role="img" aria-label="Forecast and actual ERCOT demand chart"></canvas><div id="chart-tooltip" class="chart-tooltip hidden" role="status"></div></div>
+          <p class="chart-caption">Values are megawatts. Hover or use the model selector to inspect genuine saved replay values.</p>
+        </section>
+
+        <section class="two-column">
+          <section class="panel" aria-labelledby="performance-heading"><div class="section-heading compact"><div><p class="eyebrow">Historical evaluation</p><h2 id="performance-heading">Model performance</h2></div><label>Split <select id="split-select" aria-label="Evaluation split"><option value="validation">Validation</option><option value="test">Test</option></select></label></div><p class="explain">MAE is the average absolute hourly error. These are historical replay metrics, not live operational performance.</p><div class="table-scroll"><table><thead><tr><th>Model</th><th>MAE</th><th>RMSE</th><th>MAPE</th></tr></thead><tbody id="performance-body"></tbody></table></div></section>
+          <section class="panel" aria-labelledby="demand-heading"><p class="eyebrow">Published history</p><h2 id="demand-heading">Historical actual demand</h2><p id="demand-note" class="explain"></p><div class="chart-wrap small"><canvas id="demand-chart" role="img" aria-label="Historical actual demand chart"></canvas></div></section>
+        </section>
+
+        <section class="two-column">
+          <section class="panel" aria-labelledby="weather-heading"><p class="eyebrow">Weather inputs</p><h2 id="weather-heading">Forecast weather provenance</h2><div id="weather-content"></div></section>
+          <section class="panel ai-panel" aria-labelledby="ai-heading"><p class="eyebrow">AI Energy Briefing</p><h2 id="ai-heading">Decision support, when approved</h2><div id="insights-content"><p>AI briefings coming soon.</p><p class="explain">This public dashboard does not invoke an LLM, agent, or live data service in the browser.</p></div></section>
+        </section>
+
+        </section>
+
+        <section id="rolling-backtest" class="hidden" aria-labelledby="rolling-heading">
+          <div class="section-heading historical-heading"><div><p class="eyebrow">Retrospective evaluation</p><h2 id="rolling-heading">Rolling issued-forecast evaluation</h2><p class="explain">These are archived ECMWF IFS inputs and immutable SageMaker outputs, scored only where later EIA actual demand exists. They are not prospective operational performance.</p></div></div>
+          <section class="panel"><div class="section-heading compact"><div><p class="eyebrow">Four-curve comparison</p><h3>Issued forecast versus actual demand</h3></div><label>Window <select id="rolling-window"><option value="14_day">14 days</option><option value="7_day">7 days</option></select></label><label>Forecast issue <select id="rolling-issue"></select></label></div><p class="legend-line"><span class="legend actual"></span>EIA actual <span class="legend xgb"></span>XGBoost <span class="legend bilstm"></span>Bi-LSTM <span class="legend chronos"></span>Chronos-2</p><div class="chart-wrap"><canvas id="rolling-chart" role="img" aria-label="Historical actual demand and three forecast model curves"></canvas><div id="rolling-tooltip" class="chart-tooltip hidden" role="status"></div></div><p id="rolling-demand-note" class="chart-caption"></p><div class="table-scroll"><table><thead><tr><th>Model</th><th>Matched hours</th><th>MAE</th><th>RMSE</th><th>Bias</th></tr></thead><tbody id="rolling-metrics"></tbody></table></div></section>
+          <section class="panel"><div class="section-heading compact"><div><p class="eyebrow">Weather evaluation</p><h3>Issued versus observed temperature</h3></div><label>City <select id="rolling-city"></select></label></div><p class="legend-line"><span class="legend xgb"></span>Issued ECMWF IFS <span class="legend actual"></span>Observed Open-Meteo</p><div class="chart-wrap"><canvas id="rolling-weather-chart" role="img" aria-label="Issued and available observed temperature"></canvas><div id="rolling-weather-tooltip" class="chart-tooltip hidden" role="status"></div></div><p id="rolling-weather-note" class="chart-caption"></p></section>
+        </section>
+        <section id="provenance-panel" class="panel provenance hidden" aria-label="Publication provenance"><h2>Transparency and provenance</h2><dl id="provenance-list"></dl><p class="explain">This site is static and read-only. It does not request forecasts, models, databases, or AI services.</p></section>
+      </section>
+    </main>
+    <footer class="source-footer">
+      <p><strong>About / Data Sources</strong> Texas Energy Intelligence is an independent experimental AI/ML portfolio project demonstrating short-term ERCOT electricity-demand forecasting. Predictions use historical electricity demand and weather forecasts; results are experimental and are not intended for grid dispatch, electricity trading, or safety-critical decisions. Forecast values are estimates, source availability can lag, and missing observations remain pending rather than being inferred or treated as zero. Forecast methods may improve through documented experiments, but any candidate remains subject to evaluation and explicit approval before production use.</p>
+      <p>Demand observations are sourced from the <a href="https://www.eia.gov/opendata/" rel="noopener noreferrer">U.S. Energy Information Administration (EIA)</a> for ERCOT ERCO/D, not directly from ERCOT. Context: <a href="https://www.ercot.com/" rel="noopener noreferrer">ERCOT</a>. Weather data are provided through <a href="https://open-meteo.com/" rel="noopener noreferrer">Open-Meteo</a> under <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener noreferrer">CC BY 4.0</a>, using ECMWF IFS issued forecasts where labelled; see <a href="https://www.ecmwf.int/" rel="noopener noreferrer">ECMWF</a>. This project is independently developed and is not affiliated with, sponsored by, or endorsed by ERCOT, EIA, Open-Meteo, or ECMWF.</p>
+    </footer>
+    <script type="module" src="./assets/dashboard.js"></script>
+  </body>
+</html>

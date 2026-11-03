@@ -1,0 +1,104 @@
+name: Promote Approved Candidate Model
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Candidate model family
+        required: true
+        type: choice
+        options: [xgboost, bilstm]
+      candidate_manifest_uri:
+        description: Immutable S3 URI for the candidate manifest
+        required: true
+        type: string
+      evaluation_uri:
+        description: Immutable S3 URI for the like-for-like evaluation decision
+        required: true
+        type: string
+      candidate_archive_uri:
+        description: Immutable S3 URI for the candidate model.tar.gz
+        required: true
+        type: string
+      current_selection_uri:
+        description: Current approved selection S3 URI
+        required: true
+        type: string
+      approved_by:
+        description: Human approver identity
+        required: true
+        type: string
+      approval_reason:
+        description: Why the matched evaluation justifies promotion
+        required: true
+        type: string
+      mode:
+        description: Dry run validates only. Promote uploads a new immutable version before updating the pointer.
+        required: true
+        type: choice
+        options: [dry-run, promote]
+      confirm:
+        description: Enter APPROVE_MODEL_PROMOTION only for promote
+        required: true
+        type: string
+
+permissions: { contents: read }
+
+jobs:
+  promote:
+    if: >-
+      github.repository == 'example-org/texas-energy-intelligence-portfolio' &&
+      github.ref == 'refs/heads/main' &&
+      (inputs.mode == 'dry-run' || inputs.confirm == 'APPROVE_MODEL_PROMOTION')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: approved-model-selection
+      cancel-in-progress: false
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ github.sha }}' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: us-east-1
+          allowed-account-ids: '<AWS_ACCOUNT_ID>'
+      - name: Download immutable evidence and archive
+        run: |
+          set -euo pipefail
+          case '${{ inputs.candidate_manifest_uri }}' in s3://texas-energy-data-lake-example/models/v2/candidates/*) ;; *) exit 1;; esac
+          case '${{ inputs.evaluation_uri }}' in s3://texas-energy-data-lake-example/models/v2/candidates/*) ;; *) exit 1;; esac
+          case '${{ inputs.candidate_archive_uri }}' in s3://texas-energy-data-lake-example/models/v2/candidates/*) ;; *) exit 1;; esac
+          case '${{ inputs.current_selection_uri }}' in s3://texas-energy-data-lake-example/models/v1/approved/selection/*) ;; *) exit 1;; esac
+          aws s3 cp '${{ inputs.candidate_manifest_uri }}' "$RUNNER_TEMP/candidate.json"
+          aws s3 cp '${{ inputs.evaluation_uri }}' "$RUNNER_TEMP/evaluation.json"
+          aws s3 cp '${{ inputs.current_selection_uri }}' "$RUNNER_TEMP/current.json"
+          aws s3 cp '${{ inputs.candidate_archive_uri }}' "$RUNNER_TEMP/model.tar.gz"
+          mkdir "$RUNNER_TEMP/extracted"
+          tar -xzf "$RUNNER_TEMP/model.tar.gz" -C "$RUNNER_TEMP/extracted"
+          test -d "$RUNNER_TEMP/extracted/candidate"
+      - name: Validate approval and render next pointer
+        run: |
+          set -euo pipefail
+          candidate_id="$(jq -r '.candidate_id' "$RUNNER_TEMP/candidate.json")"
+          test "$(jq -r '.model' "$RUNNER_TEMP/candidate.json")" = '${{ inputs.model }}'
+          python scripts/prepare_model_promotion.py \
+            --current-selection "$RUNNER_TEMP/current.json" \
+            --candidate "$RUNNER_TEMP/candidate.json" \
+            --evaluation "$RUNNER_TEMP/evaluation.json" \
+            --artifact-dir "$RUNNER_TEMP/extracted/candidate" \
+            --approved-by '${{ inputs.approved_by }}' \
+            --approval-reason '${{ inputs.approval_reason }}' \
+            --artifact-relative-path '${{ inputs.model }}/version='"$candidate_id" \
+            --output "$RUNNER_TEMP/next-selection.json"
+      - name: Upload immutable artifact then switch approved pointer
+        if: inputs.mode == 'promote'
+        run: |
+          set -euo pipefail
+          candidate_id="$(jq -r '.candidate_id' "$RUNNER_TEMP/candidate.json")"
+          target="s3://texas-energy-data-lake-example/models/v1/approved/artifacts/${{ inputs.model }}/version=$candidate_id/"
+          if aws s3api head-object --bucket texas-energy-data-lake-example --key "models/v1/approved/artifacts/${{ inputs.model }}/version=$candidate_id/model_contract.json" >/dev/null 2>&1; then exit 1; fi
+          aws s3 cp "$RUNNER_TEMP/extracted/candidate/" "$target" --recursive
+          aws s3 cp "$RUNNER_TEMP/next-selection.json" s3://texas-energy-data-lake-example/models/v1/approved/selection/current.json

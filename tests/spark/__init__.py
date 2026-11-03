@@ -1,0 +1,1 @@
+"""Optional Spark adapter tests."""

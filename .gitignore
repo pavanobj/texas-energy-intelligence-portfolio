@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!/.env.example
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+data/
+models/
+*.parquet
+*.csv
+*.pt
+*.pth
+*.safetensors

@@ -1,0 +1,422 @@
+name: Controlled Glue Smoke Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Plan/apply a reviewed Glue-job update, publish reviewed artifacts, or run the deployed v2 job."
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+          - publish-only
+          - run-only
+      confirm_apply:
+        description: "Required only for apply: enter APPLY_GLUE exactly."
+        required: false
+        type: string
+      confirm_publish:
+        description: "Required only for publish-only: enter PUBLISH_GLUE exactly."
+        required: false
+        type: string
+      run_smoke:
+        description: "After a successful reviewed apply, start exactly one Glue smoke run."
+        required: true
+        default: false
+        type: boolean
+      confirm_run:
+        description: "Required only when run_smoke is true: enter RUN_GLUE_SMOKE exactly."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: "<AWS_ACCOUNT_ID>"
+  DATA_LAKE_BUCKET: texas-energy-data-lake-example
+  GLUE_JOB_NAME: texas-energy-glue-silver-gold-smoke
+  GLUE_ARTIFACT_VERSION: v2
+  GLUE_ENTRYPOINT_REVISION: r1
+  PREVIOUS_GLUE_RUN_ID: jr_3e910eb8ae3e11f54f5530b8e692bf83d1751efd1413c57eecf52ab2be5e360d
+
+jobs:
+  prepare:
+    if: github.repository == 'example-org/texas-energy-intelligence-portfolio' && github.ref == 'refs/heads/main' && inputs.operation != 'run-only'
+    runs-on: ubuntu-latest
+    outputs:
+      package_sha256: ${{ steps.hashes.outputs.package_sha256 }}
+      script_sha256: ${{ steps.hashes.outputs.script_sha256 }}
+      commit_sha: ${{ steps.hashes.outputs.commit_sha }}
+    steps:
+      - name: Checkout selected main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Confirm selected commit is current main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install portable test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[test]"
+
+      - name: Run Glue contract tests
+        run: |
+          python -m py_compile jobs/glue/run_silver_gold.py scripts/package_glue_job.py
+          pytest -q tests/test_glue_entrypoint.py tests/test_glue_packaging.py tests/spark/test_glue_compat.py
+
+      - name: Build normalized immutable artifact bundle
+        id: hashes
+        run: |
+          mkdir -p "$RUNNER_TEMP/glue-smoke/bronze"
+          python scripts/package_glue_job.py --output "$RUNNER_TEMP/glue-smoke/texas_energy_glue_job.zip"
+          python jobs/glue/write_fixture.py --output "$RUNNER_TEMP/glue-smoke/bronze"
+          python - "$RUNNER_TEMP/glue-smoke/run_silver_gold.py" <<'PY'
+          from pathlib import Path
+          import sys
+          source = Path("jobs/glue/run_silver_gold.py").read_text(encoding="utf-8")
+          Path(sys.argv[1]).write_bytes(source.replace("\r\n", "\n").encode("utf-8"))
+          PY
+          package_sha256="$(sha256sum "$RUNNER_TEMP/glue-smoke/texas_energy_glue_job.zip" | awk '{print $1}')"
+          script_sha256="$(sha256sum "$RUNNER_TEMP/glue-smoke/run_silver_gold.py" | awk '{print $1}')"
+          expected_package_sha256="$(sed -nE 's/^glue_smoke_artifact_sha256[[:space:]]*=[[:space:]]*"([a-f0-9]{64})"/\1/p' infra/terraform/app/agentcore.auto.tfvars)"
+          expected_script_sha256="$(sed -nE 's/^glue_smoke_entrypoint_sha256[[:space:]]*=[[:space:]]*"([a-f0-9]{64})"/\1/p' infra/terraform/app/agentcore.auto.tfvars)"
+          expected_entrypoint_revision="$(sed -nE 's/^glue_smoke_entrypoint_revision[[:space:]]*=[[:space:]]*"(r[0-9]+)"/\1/p' infra/terraform/app/agentcore.auto.tfvars)"
+          test "$GLUE_ARTIFACT_VERSION" = "$(sed -nE 's/^glue_smoke_artifact_version[[:space:]]*=[[:space:]]*"(v[0-9]+)"/\1/p' infra/terraform/app/agentcore.auto.tfvars)"
+          test "$GLUE_ENTRYPOINT_REVISION" = "$expected_entrypoint_revision"
+          test "$package_sha256" = "$expected_package_sha256"
+          test "$script_sha256" = "$expected_script_sha256"
+          python - "$RUNNER_TEMP/glue-smoke/manifest.json" "$package_sha256" "$script_sha256" "$GLUE_ENTRYPOINT_REVISION" <<'PY'
+          from datetime import datetime, timezone
+          from pathlib import Path
+          import json
+          import subprocess
+          import sys
+          path, package_sha, script_sha, entrypoint_revision = sys.argv[1:]
+          Path(path).write_text(json.dumps({
+              "schema_version": "1.0",
+              "artifact_version": "v2",
+              "entrypoint_revision": entrypoint_revision,
+              "commit_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "package_sha256": package_sha,
+              "entrypoint_sha256": script_sha,
+              "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+          }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          PY
+          echo "package_sha256=$package_sha256" >> "$GITHUB_OUTPUT"
+          echo "script_sha256=$script_sha256" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload reviewed Glue artifact bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: glue-smoke-${{ github.sha }}
+          path: ${{ runner.temp }}/glue-smoke
+          retention-days: 7
+
+  plan:
+    needs: prepare
+    if: inputs.operation != 'publish-only'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: glue-smoke-deployment
+      cancel-in-progress: false
+    steps:
+      - name: Checkout selected main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Confirm selected commit is still current main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+
+      - name: Configure AWS credentials for no-refresh planning
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+
+      - name: Create and validate Glue-only no-refresh plan
+        working-directory: infra/terraform/app
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -refresh=false -lock-timeout=5m -var-file=agentcore.auto.tfvars -out="$RUNNER_TEMP/glue-smoke.tfplan"
+          terraform show -json "$RUNNER_TEMP/glue-smoke.tfplan" > "$RUNNER_TEMP/glue-smoke.plan.json"
+          jq -e '([.resource_changes[] | select(.change.actions != ["no-op"]) | {address, actions: .change.actions}]) as $changes | ($changes == [] or $changes == [{"address":"aws_glue_job.silver_gold_smoke[0]","actions":["update"]}])' "$RUNNER_TEMP/glue-smoke.plan.json"
+
+      - name: Record reviewed plan target
+        run: |
+          {
+            echo "### Glue smoke plan"
+            echo "- Commit: `${{ needs.prepare.outputs.commit_sha }}`"
+            echo '- Expected action: update only aws_glue_job.silver_gold_smoke[0]; canonical-bucket bootstrap uses Controlled Application Terraform.'
+            echo "- Artifact version: `$GLUE_ARTIFACT_VERSION`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    needs: prepare
+    if: github.repository == 'example-org/texas-energy-intelligence-portfolio' && github.ref == 'refs/heads/main' && inputs.operation == 'publish-only' && inputs.confirm_publish == 'PUBLISH_GLUE'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: glue-smoke-deployment
+      cancel-in-progress: false
+    steps:
+      - name: Checkout selected main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Confirm selected commit is still current main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+
+      - name: Download reviewed Glue artifact bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: glue-smoke-${{ github.sha }}
+          path: ${{ runner.temp }}/glue-smoke
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+
+      - name: Confirm immutable entrypoint revision prefix is empty
+        run: |
+          set -euo pipefail
+          prefix="artifacts/glue/$GLUE_ARTIFACT_VERSION/revisions/$GLUE_ENTRYPOINT_REVISION/"
+          aws s3api list-objects-v2 --bucket "$DATA_LAKE_BUCKET" --prefix "$prefix" --output json | jq -e '((.Contents // []) | length) == 0' > /dev/null || { echo "::error::Refusing to overwrite nonempty or unavailable $prefix"; exit 1; }
+          aws s3api head-object --bucket "$DATA_LAKE_BUCKET" --key "artifacts/glue/$GLUE_ARTIFACT_VERSION/texas_energy_glue_job.zip" --checksum-mode ENABLED > /dev/null
+
+      - name: Publish reviewed artifact bundle immutably
+        run: |
+          revision_prefix="artifacts/glue/$GLUE_ARTIFACT_VERSION/revisions/$GLUE_ENTRYPOINT_REVISION"
+          aws s3 cp "$RUNNER_TEMP/glue-smoke/run_silver_gold.py" "s3://$DATA_LAKE_BUCKET/$revision_prefix/run_silver_gold.py" --checksum-algorithm SHA256 --only-show-errors
+          aws s3 cp "$RUNNER_TEMP/glue-smoke/manifest.json" "s3://$DATA_LAKE_BUCKET/$revision_prefix/manifest.json" --checksum-algorithm SHA256 --only-show-errors
+
+      - name: Verify published package and entrypoint checksums
+        run: |
+          package_checksum="$(aws s3api head-object --bucket "$DATA_LAKE_BUCKET" --key "artifacts/glue/$GLUE_ARTIFACT_VERSION/texas_energy_glue_job.zip" --checksum-mode ENABLED --query ChecksumSHA256 --output text)"
+          script_checksum="$(aws s3api head-object --bucket "$DATA_LAKE_BUCKET" --key "artifacts/glue/$GLUE_ARTIFACT_VERSION/revisions/$GLUE_ENTRYPOINT_REVISION/run_silver_gold.py" --checksum-mode ENABLED --query ChecksumSHA256 --output text)"
+          test "$(printf %s '${{ needs.prepare.outputs.package_sha256 }}' | xxd -r -p | base64)" = "$package_checksum"
+          test "$(printf %s '${{ needs.prepare.outputs.script_sha256 }}' | xxd -r -p | base64)" = "$script_checksum"
+
+      - name: Record immutable publication provenance
+        run: |
+          {
+            echo "### Glue smoke immutable publication"
+            echo "- Commit: `${{ needs.prepare.outputs.commit_sha }}`"
+            echo "- Artifact version: `$GLUE_ARTIFACT_VERSION`"
+            echo "- Entrypoint revision: `$GLUE_ENTRYPOINT_REVISION`"
+            echo "- Source ZIP SHA-256: `${{ needs.prepare.outputs.package_sha256 }}`"
+            echo "- Entrypoint SHA-256: `${{ needs.prepare.outputs.script_sha256 }}`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: [prepare, plan]
+    if: inputs.operation == 'apply' && inputs.confirm_apply == 'APPLY_GLUE'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: glue-smoke-deployment
+      cancel-in-progress: false
+    steps:
+      - name: Checkout selected main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Confirm selected commit is still current main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+
+      - name: Create reviewed Glue-only Terraform plan
+        working-directory: infra/terraform/app
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -refresh=false -lock-timeout=5m -var-file=agentcore.auto.tfvars -out="$RUNNER_TEMP/glue-smoke.tfplan"
+          terraform show -json "$RUNNER_TEMP/glue-smoke.tfplan" > "$RUNNER_TEMP/glue-smoke.plan.json"
+          jq -e '([.resource_changes[] | select(.change.actions != ["no-op"]) | {address, actions: .change.actions}]) as $changes | ($changes == [] or $changes == [{"address":"aws_glue_job.silver_gold_smoke[0]","actions":["update"]}])' "$RUNNER_TEMP/glue-smoke.plan.json"
+
+      - name: Apply explicitly approved Glue-only saved plan
+        working-directory: infra/terraform/app
+        run: terraform apply -input=false "$RUNNER_TEMP/glue-smoke.tfplan"
+
+      - name: Record deployment provenance
+        run: |
+          {
+            echo "### Glue smoke deployment"
+            echo "- Commit: `${{ needs.prepare.outputs.commit_sha }}`"
+            echo "- Artifact version: `$GLUE_ARTIFACT_VERSION`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  run-only:
+    if: github.repository == 'example-org/texas-energy-intelligence-portfolio' && github.ref == 'refs/heads/main' && inputs.operation == 'run-only' && inputs.run_smoke && inputs.confirm_run == 'RUN_GLUE_SMOKE'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: glue-smoke-run
+      cancel-in-progress: false
+    steps:
+      - name: Checkout selected main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Confirm selected commit is current main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+
+      - name: Verify deployed immutable v2 job inputs
+        run: |
+          set -euo pipefail
+          package_sha256="$(sed -nE 's/^glue_smoke_artifact_sha256[[:space:]]*=[[:space:]]*"([a-f0-9]{64})"/\1/p' infra/terraform/app/agentcore.auto.tfvars)"
+          script_sha256="$(sed -nE 's/^glue_smoke_entrypoint_sha256[[:space:]]*=[[:space:]]*"([a-f0-9]{64})"/\1/p' infra/terraform/app/agentcore.auto.tfvars)"
+          entrypoint_revision="$(sed -nE 's/^glue_smoke_entrypoint_revision[[:space:]]*=[[:space:]]*"(r[0-9]+)"/\1/p' infra/terraform/app/agentcore.auto.tfvars)"
+          test -n "$package_sha256"
+          test -n "$script_sha256"
+          test "$GLUE_ENTRYPOINT_REVISION" = "$entrypoint_revision"
+          aws glue get-job --job-name "$GLUE_JOB_NAME" --output json > "$RUNNER_TEMP/glue-job.json"
+          python - "$RUNNER_TEMP/glue-job.json" "$DATA_LAKE_BUCKET" "$GLUE_ARTIFACT_VERSION" "$GLUE_ENTRYPOINT_REVISION" "$package_sha256" "$script_sha256" <<'PY'
+          import json
+          import sys
+
+          path, bucket, version, revision, package_sha, script_sha = sys.argv[1:]
+          job = json.load(open(path, encoding="utf-8"))["Job"]
+          arguments = job.get("DefaultArguments", {})
+          expected_script = f"s3://{bucket}/artifacts/glue/{version}/revisions/{revision}/run_silver_gold.py"
+          expected_zip = f"s3://{bucket}/artifacts/glue/{version}/texas_energy_glue_job.zip"
+          expected_input = f"s3://{bucket}/bronze/smoke/{version}/fixtures"
+          expected_silver = f"s3://{bucket}/silver/smoke/{version}/unapproved-default"
+          expected_gold = f"s3://{bucket}/gold/smoke/{version}/unapproved-default"
+          assert job["Command"]["ScriptLocation"] == expected_script
+          assert arguments.get("--extra-py-files") == expected_zip
+          assert arguments.get("--bronze-input") == expected_input
+          assert arguments.get("--silver-output") == expected_silver
+          assert arguments.get("--gold-output") == expected_gold
+          assert arguments.get("--artifact-package-sha256") == package_sha
+          assert arguments.get("--artifact-script-sha256") == script_sha
+          PY
+          expected_package_checksum="$(printf %s "$package_sha256" | xxd -r -p | base64)"
+          expected_script_checksum="$(printf %s "$script_sha256" | xxd -r -p | base64)"
+          actual_package_checksum="$(aws s3api head-object --bucket "$DATA_LAKE_BUCKET" --key "artifacts/glue/$GLUE_ARTIFACT_VERSION/texas_energy_glue_job.zip" --checksum-mode ENABLED --query ChecksumSHA256 --output text)"
+          actual_script_checksum="$(aws s3api head-object --bucket "$DATA_LAKE_BUCKET" --key "artifacts/glue/$GLUE_ARTIFACT_VERSION/revisions/$GLUE_ENTRYPOINT_REVISION/run_silver_gold.py" --checksum-mode ENABLED --query ChecksumSHA256 --output text)"
+          test "$expected_package_checksum" = "$actual_package_checksum"
+          test "$expected_script_checksum" = "$actual_script_checksum"
+          previous_state="$(aws glue get-job-run --job-name "$GLUE_JOB_NAME" --run-id "$PREVIOUS_GLUE_RUN_ID" --query 'JobRun.JobRunState' --output text)"
+          case "$previous_state" in
+            SUCCEEDED|FAILED|ERROR|TIMEOUT|STOPPED|EXPIRED) ;;
+            *) echo "::error::Previous Glue run is not terminal: $previous_state"; exit 1 ;;
+          esac
+          prior_silver_output_count="$(aws s3api list-objects-v2 --bucket "$DATA_LAKE_BUCKET" --prefix "silver/smoke/$GLUE_ARTIFACT_VERSION/runs/" --output json | jq '(.Contents // []) | length')"
+          prior_gold_output_count="$(aws s3api list-objects-v2 --bucket "$DATA_LAKE_BUCKET" --prefix "gold/smoke/$GLUE_ARTIFACT_VERSION/runs/" --output json | jq '(.Contents // []) | length')"
+          echo "Previous isolated Silver output count: $prior_silver_output_count" >> "$GITHUB_STEP_SUMMARY"
+          echo "Previous isolated Gold output count: $prior_gold_output_count" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Start exactly one isolated v2 Glue run
+        id: run
+        run: |
+          set -euo pipefail
+          run_token="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          silver_output_prefix="silver/smoke/$GLUE_ARTIFACT_VERSION/runs/$run_token/"
+          gold_output_prefix="gold/smoke/$GLUE_ARTIFACT_VERSION/runs/$run_token/"
+          test "$(aws s3api list-objects-v2 --bucket "$DATA_LAKE_BUCKET" --prefix "$silver_output_prefix" --output json | jq '(.Contents // []) | length')" = "0"
+          test "$(aws s3api list-objects-v2 --bucket "$DATA_LAKE_BUCKET" --prefix "$gold_output_prefix" --output json | jq '(.Contents // []) | length')" = "0"
+          arguments="$(jq -cn --arg silver "s3://$DATA_LAKE_BUCKET/${silver_output_prefix%/}" --arg gold "s3://$DATA_LAKE_BUCKET/${gold_output_prefix%/}" '{"--silver-output": $silver, "--gold-output": $gold}')"
+          run_id="$(aws glue start-job-run --job-name "$GLUE_JOB_NAME" --arguments "$arguments" --query JobRunId --output text)"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "silver_output_prefix=$silver_output_prefix" >> "$GITHUB_OUTPUT"
+          echo "gold_output_prefix=$gold_output_prefix" >> "$GITHUB_OUTPUT"
+          {
+            echo "Glue JobRunId: $run_id"
+            echo "Isolated Silver output prefix: s3://$DATA_LAKE_BUCKET/$silver_output_prefix"
+            echo "Isolated Gold output prefix: s3://$DATA_LAKE_BUCKET/$gold_output_prefix"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Wait for this single isolated Glue run
+        env:
+          RUN_ID: ${{ steps.run.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 24); do
+            job_run="$(aws glue get-job-run --job-name "$GLUE_JOB_NAME" --run-id "$RUN_ID" --output json)"
+            state="$(jq -r '.JobRun.JobRunState' <<<"$job_run")"
+            case "$state" in
+              SUCCEEDED)
+                printf '%s\n' "$job_run" >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+                ;;
+              FAILED|ERROR|TIMEOUT|STOPPED|EXPIRED)
+                printf '%s\n' "$job_run" >> "$GITHUB_STEP_SUMMARY"
+                echo "::error::Glue run $RUN_ID reached terminal state $state"
+                exit 1
+                ;;
+              *)
+                echo "Glue run $RUN_ID is $state (poll $attempt/24)"
+                sleep 30
+                ;;
+            esac
+          done
+          echo "::error::Timed out waiting for Glue run $RUN_ID after 12 minutes"
+          exit 1

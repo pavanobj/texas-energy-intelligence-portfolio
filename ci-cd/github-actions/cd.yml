@@ -1,0 +1,258 @@
+name: Controlled Application Terraform
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Run a reviewed plan or apply its saved plan."
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+          - recover-production-state-machine
+      confirm_apply:
+        description: "Required only for apply: enter APPLY exactly."
+        required: false
+        type: string
+      confirm_state_recovery:
+        description: "Required only for state recovery: enter UNTAINT_PRODUCTION_STATE_MACHINE exactly."
+        required: false
+        type: string
+      approved_change_set:
+        description: "Required reviewed change set for this controlled deployment."
+        required: true
+        default: canonical-data-lake-glue
+        type: choice
+        options:
+          - canonical-data-lake-glue
+          - production-data-pipeline
+          - dashboard-publication
+          - private-agent-dashboard-tools
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-app-deploy:
+    if: >-
+      github.repository == 'example-org/texas-energy-intelligence-portfolio' &&
+      github.ref == 'refs/heads/main' &&
+      (inputs.approved_change_set == 'canonical-data-lake-glue' || inputs.approved_change_set == 'production-data-pipeline' || inputs.approved_change_set == 'dashboard-publication' || inputs.approved_change_set == 'private-agent-dashboard-tools') &&
+      (inputs.operation == 'plan' ||
+       (inputs.operation == 'apply' && inputs.confirm_apply == 'APPLY') ||
+       (inputs.operation == 'recover-production-state-machine' &&
+        inputs.approved_change_set == 'production-data-pipeline' &&
+        inputs.confirm_state_recovery == 'UNTAINT_PRODUCTION_STATE_MACHINE'))
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: terraform-application-state
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout the selected main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Check that the selected commit is current main
+        id: stale-before-plan
+        env:
+          TESTED_SHA: ${{ github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$TESTED_SHA"
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          current_main_sha="$(git rev-parse refs/remotes/origin/main)"
+
+          if [ "$TESTED_SHA" != "$current_main_sha" ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping deployment because the selected commit is no longer main."
+            exit 0
+          fi
+
+          echo "stale=false" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Terraform
+        if: steps.stale-before-plan.outputs.stale != 'true'
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials for controlled application deployment
+        if: steps.stale-before-plan.outputs.stale != 'true'
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: us-east-1
+          allowed-account-ids: "<AWS_ACCOUNT_ID>"
+
+      - name: Verify AWS account
+        if: steps.stale-before-plan.outputs.stale != 'true'
+        run: |
+          account_id="$(aws sts get-caller-identity --query Account --output text)"
+          test "$account_id" = "<AWS_ACCOUNT_ID>"
+
+      - name: Initialize application Terraform backend
+        if: steps.stale-before-plan.outputs.stale != 'true'
+        working-directory: infra/terraform/app
+        run: terraform init -input=false
+
+      - name: Create saved application Terraform plan
+        id: plan
+        if: steps.stale-before-plan.outputs.stale != 'true' && inputs.operation != 'recover-production-state-machine'
+        working-directory: infra/terraform/app
+        run: |
+          set +e
+          terraform plan -input=false -lock-timeout=5m -var-file=agentcore.auto.tfvars -detailed-exitcode -out="$RUNNER_TEMP/application.tfplan"
+          exit_code=$?
+          set -e
+
+          case "$exit_code" in
+            0)
+              echo "changes=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::Application Terraform plan found no changes."
+              ;;
+            2)
+              echo "changes=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::Application Terraform plan found changes."
+              ;;
+            *)
+              exit "$exit_code"
+              ;;
+          esac
+
+      - name: Enforce reviewed change set
+        if: steps.stale-before-plan.outputs.stale != 'true' && inputs.operation != 'recover-production-state-machine'
+        working-directory: infra/terraform/app
+        run: |
+          terraform show -json "$RUNNER_TEMP/application.tfplan" > "$RUNNER_TEMP/application.plan.json"
+          jq -e '
+          ([.resource_changes[] | select(.change.actions != ["no-op"] and .change.actions != ["read"]) | {address, actions: .change.actions}] | sort_by(.address)) as $changes |
+            ($changes == [] or
+             ("${{ inputs.approved_change_set }}" == "canonical-data-lake-glue" and
+              ($changes == ([
+               {"address":"aws_glue_job.silver_gold_smoke[0]","actions":["update"]}
+             ] | sort_by(.address)) or
+             $changes == ([
+               {"address":"aws_glue_job.silver_gold_smoke[0]","actions":["update"]},
+               {"address":"aws_s3_bucket.data_lake[0]","actions":["create"]},
+               {"address":"aws_s3_bucket_ownership_controls.data_lake[0]","actions":["create"]},
+               {"address":"aws_s3_bucket_policy.data_lake[0]","actions":["create"]},
+               {"address":"aws_s3_bucket_public_access_block.data_lake[0]","actions":["create"]},
+               {"address":"aws_s3_bucket_server_side_encryption_configuration.data_lake[0]","actions":["create"]},
+               {"address":"aws_s3_bucket_versioning.data_lake[0]","actions":["create"]}
+             ] | sort_by(.address)))) or
+             ("${{ inputs.approved_change_set }}" == "production-data-pipeline" and
+              ($changes == ([
+               {"address":"aws_ecr_lifecycle_policy.sagemaker_unified[0]","actions":["create"]},
+               {"address":"aws_ecr_repository.sagemaker_unified[0]","actions":["create"]},
+               {"address":"aws_glue_job.silver_gold_production[0]","actions":["create"]},
+               {"address":"aws_iam_role_policy.ingestion_lambda_execution","actions":["update"]},
+               {"address":"aws_lambda_function.ingestion[0]","actions":["update"]},
+               {"address":"aws_lambda_permission.allow_pipeline_orchestration[0]","actions":["create"]},
+               {"address":"aws_sfn_state_machine.production_data_pipeline[0]","actions":["create"]}
+             ] | sort_by(.address)) or
+              $changes == ([
+               {"address":"aws_lambda_permission.allow_pipeline_orchestration[0]","actions":["create"]}
+             ] | sort_by(.address)) or
+             $changes == ([
+               {"address":"aws_glue_job.silver_gold_production[0]","actions":["update"]}
+             ] | sort_by(.address)) or
+             $changes == ([
+               {"address":"aws_sfn_state_machine.production_data_pipeline[0]","actions":["update"]}
+              ] | sort_by(.address)) or
+              $changes == ([
+                {"address":"aws_glue_job.silver_gold_production[0]","actions":["update"]},
+                {"address":"aws_sfn_state_machine.production_data_pipeline[0]","actions":["update"]}
+             ] | sort_by(.address)) or
+             $changes == ([
+               {"address":"aws_lambda_function.ingestion[0]","actions":["update"]}
+             ] | sort_by(.address)) or
+             $changes == ([
+               {"address":"aws_lambda_function.ingestion[0]","actions":["update"]},
+               {"address":"aws_sfn_state_machine.production_data_pipeline[0]","actions":["update"]}
+             ] | sort_by(.address)) or
+             $changes == ([
+                {"address":"aws_cloudwatch_event_rule.production_pipeline_daily[0]","actions":["create"]},
+                {"address":"aws_cloudwatch_event_target.production_pipeline_daily[0]","actions":["create"]},
+                {"address":"aws_iam_role_policy.ingestion_lambda_execution","actions":["update"]},
+                {"address":"aws_lambda_function.ingestion[0]","actions":["update"]},
+                {"address":"aws_lambda_permission.allow_eventbridge_production_pipeline_daily[0]","actions":["create"]}
+              ] | sort_by(.address)))) or
+             ("${{ inputs.approved_change_set }}" == "dashboard-publication" and
+              ($changes == ([
+               {"address":"aws_cloudfront_cache_policy.dashboard_short_ttl[0]","actions":["create"]},
+               {"address":"aws_cloudfront_cache_policy.dashboard_static_assets[0]","actions":["create"]},
+               {"address":"aws_cloudfront_distribution.dashboard[0]","actions":["create"]},
+               {"address":"aws_cloudfront_origin_access_control.dashboard[0]","actions":["create"]},
+               {"address":"aws_s3_bucket_policy.data_lake[0]","actions":["update"]},
+               {"address":"aws_wafv2_web_acl.dashboard[0]","actions":["create"]}
+               ] | sort_by(.address)) or
+               $changes == ([
+                {"address":"aws_cloudfront_distribution.dashboard[0]","actions":["create"]},
+                {"address":"aws_s3_bucket_policy.data_lake[0]","actions":["update"]},
+                {"address":"aws_wafv2_web_acl.dashboard[0]","actions":["create"]}
+               ] | sort_by(.address))) or
+             ("${{ inputs.approved_change_set }}" == "private-agent-dashboard-tools" and
+              ([ $changes[] | select(
+                (.address == "aws_bedrockagentcore_agent_runtime.private_agent[0]" and .actions == ["update"]) or
+                (.address == "aws_bedrockagentcore_agent_runtime_endpoint.private_agent[0]" and .actions == ["update"]) or
+                (.address == "aws_bedrockagentcore_resource_policy.private_agent_runtime_invocation[0]" and .actions == ["update"]) or
+                (.address == "aws_bedrockagentcore_resource_policy.private_agent_endpoint_invocation[0]" and .actions == ["update"]) or
+                (.address == "terraform_data.private_agent_mmdsv2[0]" and (.actions == ["create"] or .actions == ["delete", "create"])) or
+                (.address == "terraform_data.private_agent_endpoint_promotion[0]" and (.actions == ["create"] or .actions == ["delete", "create"]))
+              )] | length) == ($changes | length) and
+              (([ $changes[] | select(.address == "aws_bedrockagentcore_agent_runtime.private_agent[0]" and .actions == ["update"]) ] | length) == 1 or
+               ([ $changes[] | select(.address == "aws_bedrockagentcore_agent_runtime_endpoint.private_agent[0]" and .actions == ["update"]) ] | length) == 1)
+             )))
+          ' "$RUNNER_TEMP/application.plan.json"
+
+      # A provider post-create read previously tainted an already ACTIVE state
+      # machine. This is a Terraform-state-only recovery, not an AWS mutation.
+      - name: Clear only the failed production state-machine create taint
+        if: steps.stale-before-plan.outputs.stale != 'true' && inputs.operation == 'recover-production-state-machine' && inputs.confirm_state_recovery == 'UNTAINT_PRODUCTION_STATE_MACHINE'
+        working-directory: infra/terraform/app
+        run: |
+          set -euo pipefail
+          terraform state show 'aws_sfn_state_machine.production_data_pipeline[0]' >/dev/null
+          terraform untaint 'aws_sfn_state_machine.production_data_pipeline[0]'
+
+      - name: Verify recovery leaves only the Lambda invoke permission
+        if: steps.stale-before-plan.outputs.stale != 'true' && inputs.operation == 'recover-production-state-machine'
+        working-directory: infra/terraform/app
+        run: |
+          set -euo pipefail
+          terraform plan -input=false -lock-timeout=5m -var-file=agentcore.auto.tfvars -out="$RUNNER_TEMP/application-recovery.tfplan"
+          terraform show -json "$RUNNER_TEMP/application-recovery.tfplan" > "$RUNNER_TEMP/application-recovery.plan.json"
+          jq -e '
+            ([.resource_changes[] | select(.change.actions != ["no-op"]) | {address, actions: .change.actions}] | sort_by(.address)) ==
+            [{"address":"aws_lambda_permission.allow_pipeline_orchestration[0]","actions":["create"]}]
+          ' "$RUNNER_TEMP/application-recovery.plan.json"
+
+      - name: Check that main is unchanged before apply
+        id: stale-before-apply
+        if: inputs.operation == 'apply' && steps.plan.outputs.changes == 'true'
+        env:
+          TESTED_SHA: ${{ github.sha }}
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          current_main_sha="$(git rev-parse refs/remotes/origin/main)"
+
+          if [ "$TESTED_SHA" != "$current_main_sha" ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping apply because the CI-tested commit is no longer main."
+            exit 0
+          fi
+
+          echo "stale=false" >> "$GITHUB_OUTPUT"
+
+      - name: Apply explicitly approved saved application Terraform plan
+        if: inputs.operation == 'apply' && inputs.confirm_apply == 'APPLY' && steps.plan.outputs.changes == 'true' && steps.stale-before-apply.outputs.stale != 'true'
+        working-directory: infra/terraform/app
+        run: terraform apply -input=false -lock-timeout=5m "$RUNNER_TEMP/application.tfplan"

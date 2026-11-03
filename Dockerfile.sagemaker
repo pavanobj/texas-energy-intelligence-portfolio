@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+WORKDIR /opt/program
+COPY pyproject.toml ./
+COPY src ./src
+# The managed training dispatcher invokes the reviewed weather-aware trainers
+# directly, rather than maintaining a second implementation in the container.
+COPY scripts ./scripts
+# The single managed-training image must support the GPU-only Bi-LSTM job while
+# remaining usable for CPU XGBoost. SageMaker supplies the NVIDIA driver; the
+# pinned CUDA wheel carries the matching user-space libraries.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu121 "torch==2.5.1+cu121"
+# XGBRegressor loads the accepted weather-aware model via xgboost's sklearn
+# wrapper.  scikit-learn is therefore a runtime requirement, not a test-only
+# extra, for the XGBoost Processing path.
+RUN pip install --no-cache-dir . "pandas>=2.1,<3" "pyarrow>=14,<20" "numpy>=1.26,<3" "scikit-learn>=1.3,<2" "xgboost-cpu==2.1.4" "transformers>=4.45,<5" "chronos-forecasting==2.3.1"
+ENV PYTHONUNBUFFERED=1 PYTHONPATH=/opt/program/src
+ENTRYPOINT ["python", "-m", "texas_energy.sagemaker.runtime"]

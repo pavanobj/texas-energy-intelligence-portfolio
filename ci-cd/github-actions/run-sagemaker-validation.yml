@@ -1,0 +1,68 @@
+name: Run Bounded SageMaker Forecast Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "One immutable model channel to validate."
+        required: true
+        type: choice
+        options: [xgboost, bilstm, chronos2]
+      confirm_run:
+        description: "Enter RUN_SAGEMAKER_VALIDATION to create exactly one Processing job."
+        required: true
+        type: string
+
+permissions: { contents: read }
+
+jobs:
+  run-one-validation:
+    if: >-
+      github.repository == 'example-org/texas-energy-intelligence-portfolio' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_run == 'RUN_SAGEMAKER_VALIDATION'
+    runs-on: ubuntu-latest
+    permissions: { contents: read, id-token: write }
+    concurrency:
+      group: sagemaker-validation-${{ inputs.model }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ github.sha }}', fetch-depth: 0 }
+      - name: Require current main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: us-east-1
+          allowed-account-ids: '<AWS_ACCOUNT_ID>'
+      - name: Build reviewed request
+        id: request
+        run: |
+          set -euo pipefail
+          job="te-${{ inputs.model }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          python scripts/build_sagemaker_processing_request.py --model '${{ inputs.model }}' --job-name "$job" --loader-git-revision "$GITHUB_SHA" --output "$RUNNER_TEMP/request.json"
+          echo "name=$job" >> "$GITHUB_OUTPUT"
+          jq '{ProcessingJobName,RoleArn,AppSpecification,ProcessingInputs,ProcessingOutputConfig,ProcessingResources,StoppingCondition}' "$RUNNER_TEMP/request.json"
+      - name: Start exactly one Processing job
+        run: aws sagemaker create-processing-job --cli-input-json "file://$RUNNER_TEMP/request.json"
+      - name: Wait for the one terminal job status
+        run: |
+          set -euo pipefail
+          while true; do
+            status="$(aws sagemaker describe-processing-job --processing-job-name '${{ steps.request.outputs.name }}' --query ProcessingJobStatus --output text)"
+            echo "SageMaker processing status: $status"
+            case "$status" in
+              Completed) break ;;
+              Failed|Stopped) aws sagemaker describe-processing-job --processing-job-name '${{ steps.request.outputs.name }}' --output json; exit 1 ;;
+            esac
+            sleep 30
+          done
+      - name: Record immutable output location
+        run: |
+          aws sagemaker describe-processing-job --processing-job-name '${{ steps.request.outputs.name }}' --output json > "$RUNNER_TEMP/processing-job.json"
+          jq '{ProcessingJobArn,ProcessingJobStatus,ProcessingStartTime,ProcessingEndTime,ProcessingOutputConfig}' "$RUNNER_TEMP/processing-job.json" | tee -a "$GITHUB_STEP_SUMMARY"

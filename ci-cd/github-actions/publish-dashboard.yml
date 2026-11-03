@@ -1,0 +1,143 @@
+name: Publish Dashboard Static Assets
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "public/index.html"
+      - "public/assets/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: texas-energy-dashboard-publication
+  cancel-in-progress: false
+
+jobs:
+  retired-manual-data-transform:
+    # Production joins now run in the post-model Glue evaluator. Keep this
+    # historical recipe inert rather than allowing a workflow dispatch to
+    # overwrite AWS-native prospective evaluation data.
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: us-east-1
+      DATA_LAKE_BUCKET: texas-energy-data-lake-example
+      ISSUE: 20261026T150000Z
+      INPUT_PREFIX: forecast-inputs/v1/live/issue=20261026T150000Z
+      XGBOOST_PREFIX: forecasts/v1/live/issue=20261026T150000Z/model=xgboost/run=58812124-4ce3-42df-bddf-af2a637c14a3
+      BILSTM_PREFIX: forecasts/v1/live/issue=20261026T150000Z/model=bilstm/run=53fc95fe-fc89-4b16-a172-aeb579db854c
+      CHRONOS_PREFIX: forecasts/v1/live/issue=20261026T150000Z/model=chronos2/run=2d7346d8-de27-4527-82e0-6e6a08341aab
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install the existing publisher dependencies
+        run: python -m pip install ".[test]"
+      - name: Configure canonical-lake publication credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: us-east-1
+          allowed-account-ids: "<AWS_ACCOUNT_ID>"
+      - name: Pin the immutable source selection once
+        env:
+          SOURCE_MANIFEST: ${{ runner.temp }}/source-manifest.json
+          REQUESTED_SOURCE_MANIFEST: ${{ runner.temp }}/requested-source-manifest.json
+        run: |
+          python - <<'PY' > "$REQUESTED_SOURCE_MANIFEST"
+          import json, os
+          print(json.dumps({"schema_version":"1.0","issue_id":os.environ["ISSUE"],"input_prefix":os.environ["INPUT_PREFIX"],"model_output_prefixes":{"xgboost":os.environ["XGBOOST_PREFIX"],"bilstm":os.environ["BILSTM_PREFIX"],"chronos2":os.environ["CHRONOS_PREFIX"]}}, indent=2, sort_keys=True))
+          PY
+          key="dashboard/v1/source-manifests/issue=$ISSUE.json"
+          if aws s3api head-object --bucket "$DATA_LAKE_BUCKET" --key "$key" >/dev/null 2>&1; then
+            aws s3 cp "s3://$DATA_LAKE_BUCKET/$key" "$SOURCE_MANIFEST" --only-show-errors
+            cmp --silent "$REQUESTED_SOURCE_MANIFEST" "$SOURCE_MANIFEST" || { echo "Existing immutable source manifest differs from this publication request" >&2; exit 1; }
+          else
+            cp "$REQUESTED_SOURCE_MANIFEST" "$SOURCE_MANIFEST"
+            aws s3api put-object --bucket "$DATA_LAKE_BUCKET" --key "$key" --body "$SOURCE_MANIFEST" --server-side-encryption AES256 --if-none-match '*' >/dev/null
+          fi
+      - name: Pin the immutable historical replay source selection once
+        run: |
+          key="dashboard/v1/source-manifests/historical-replay-20261012T060000Z-20261025T060000Z.json"
+          printf '%s\n' '{"schema_version":"1.0","issues":"20261012T060000Z..20261025T060000Z","input_prefix":"forecast-inputs/v1/historical-replay","output_prefix":"forecasts/v1/sagemaker-validation/historical-replay"}' > replay-source-manifest.json
+          if aws s3api head-object --bucket "$DATA_LAKE_BUCKET" --key "$key" >/dev/null 2>&1; then aws s3 cp "s3://$DATA_LAKE_BUCKET/$key" existing-replay-source-manifest.json --only-show-errors; cmp --silent replay-source-manifest.json existing-replay-source-manifest.json; else aws s3api put-object --bucket "$DATA_LAKE_BUCKET" --key "$key" --body replay-source-manifest.json --server-side-encryption AES256 --if-none-match '*' >/dev/null; fi
+      - name: Materialize immutable forecast inputs and current Gold snapshots
+        env:
+          STAGE: ${{ runner.temp }}/dashboard-stage
+        run: |
+          mkdir -p "$STAGE/inputs/issue=$ISSUE" "$STAGE/outputs/issue=$ISSUE" "$STAGE/gold" "$STAGE/replay-inputs" "$STAGE/replay-outputs"
+          aws s3 cp "s3://$DATA_LAKE_BUCKET/$INPUT_PREFIX/input_manifest.json" "$STAGE/inputs/issue=$ISSUE/input_manifest.json" --only-show-errors
+          aws s3 cp "s3://$DATA_LAKE_BUCKET/$INPUT_PREFIX/weather_forecasts.parquet" "$STAGE/inputs/issue=$ISSUE/weather_forecasts.parquet" --only-show-errors
+          for prefix in "$XGBOOST_PREFIX" "$BILSTM_PREFIX" "$CHRONOS_PREFIX"; do model="${prefix#*/model=}"; model="${model%%/*}"; aws s3 cp "s3://$DATA_LAKE_BUCKET/$prefix/predictions.parquet" "$STAGE/$model.parquet" --only-show-errors; aws s3 cp "s3://$DATA_LAKE_BUCKET/$prefix/lineage.json" "$STAGE/$model-lineage.json" --only-show-errors; done
+          aws s3 sync "s3://$DATA_LAKE_BUCKET/gold/v2/demand-features/" "$STAGE/gold/demand-features/" --only-show-errors
+          aws s3 sync "s3://$DATA_LAKE_BUCKET/gold/v2/observed-weather-lineage/" "$STAGE/gold/observed-weather-lineage/" --only-show-errors
+          for day in $(seq -w 12 25); do issue="202610${day}T060000Z"; mkdir -p "$STAGE/replay-inputs/issue=$issue" "$STAGE/replay-outputs/issue=$issue"; aws s3 cp "s3://$DATA_LAKE_BUCKET/forecast-inputs/v1/historical-replay/issue=$issue/weather_forecasts.parquet" "$STAGE/replay-inputs/issue=$issue/weather_forecasts.parquet" --only-show-errors; aws s3 sync "s3://$DATA_LAKE_BUCKET/forecasts/v1/sagemaker-validation/historical-replay/issue=$issue/" "$STAGE/replay-outputs/issue=$issue/" --only-show-errors; done
+      - name: Run the existing publisher against immutable inputs and active Gold snapshots
+        env:
+          STAGE: ${{ runner.temp }}/dashboard-stage
+          SITE: ${{ runner.temp }}/dashboard-site
+        run: |
+          cp -R public "$SITE"
+          python - <<'PY'
+          import hashlib, importlib.util, json, os, subprocess, sys
+          from pathlib import Path
+          import pandas as pd
+          stage, site, issue = Path(os.environ["STAGE"]), Path(os.environ["SITE"]), os.environ["ISSUE"]
+          spec = importlib.util.spec_from_file_location("dashboard_publisher", "scripts/publish_static_dashboard_data.py"); publisher = importlib.util.module_from_spec(spec); spec.loader.exec_module(publisher)
+          predictions = pd.concat([pd.read_parquet(stage / f"{name}.parquet") for name in ("xgboost", "bilstm", "chronos2")], ignore_index=True)
+          output = stage / "outputs" / f"issue={issue}"; forecast_path = output / "forecast_predictions.parquet"; predictions.to_parquet(forecast_path, index=False)
+          lineages = [json.loads((stage / f"{name}-lineage.json").read_text()) for name in ("xgboost", "bilstm", "chronos2")]; source = json.loads((stage / "inputs" / f"issue={issue}" / "input_manifest.json").read_text()); sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+          manifest = {"schema_version":"1.0","status":"complete","generation_type":"prospective_live_inference","forecast_origin_utc":source["forecast_origin_utc"],"context_end_utc":source["context_end_utc"],"demand_availability_lag_hours":source["demand_availability_lag_hours"],"weather_model":source["weather_model"],"forecast_sha256":sha(forecast_path),"input_manifest_sha256":sha(stage / "inputs" / f"issue={issue}" / "input_manifest.json"),"model_execution_completed_at_utc":max(item["created_at_utc"] for item in lineages)}
+          (output / "issue_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+          actuals_path = stage / "gold-actuals.parquet"; publisher._gold_actuals(stage / "gold" / "demand-features").to_parquet(actuals_path, index=False)
+          publisher.publish_prospective(stage, actuals_path, issue, site / "data", stage / "gold" / "observed-weather-lineage")
+          validated = stage / "validated-replay"
+          subprocess.run([sys.executable, "scripts/validate_historical_replay.py", "--replay-root", str(stage / "replay-outputs"), "--gold-demand-root", str(stage / "gold" / "demand-features"), "--output-dir", str(validated)], check=True)
+          publisher.publish_rolling_historical_replay(validated / "historical_predictions_with_gold_actuals.parquet", stage / "replay-inputs", stage / "gold" / "observed-weather-lineage", site / "data")
+          PY
+      - name: Publish immutable evaluation snapshot and current static projection
+        env:
+          SITE: ${{ runner.temp }}/dashboard-site
+        run: |
+          refresh="$(date -u +%Y%m%dT%H%M%SZ)"; generated="$SITE/data/prospective-forecast.json"; rolling="$SITE/data/rolling-historical-replay.json"
+          aws s3api put-object --bucket "$DATA_LAKE_BUCKET" --key "dashboard/v1/evaluations/issue=$ISSUE/refresh=$refresh/prospective-forecast.json" --body "$generated" --content-type application/json --cache-control max-age=60 --server-side-encryption AES256 --if-none-match '*' >/dev/null
+          aws s3api put-object --bucket "$DATA_LAKE_BUCKET" --key "dashboard/v1/evaluations/historical-replay/issues=20261012T060000Z-20261025T060000Z/refresh=$refresh/rolling-historical-replay.json" --body "$rolling" --content-type application/json --cache-control max-age=60 --server-side-encryption AES256 --if-none-match '*' >/dev/null
+          aws s3 sync "$SITE/" "s3://$DATA_LAKE_BUCKET/dashboard/v1/" --exclude 'data/prospective-forecast.json' --exclude 'data/rolling-historical-replay.json' --cache-control max-age=300 --sse AES256 --only-show-errors
+          aws s3 cp "$generated" "s3://$DATA_LAKE_BUCKET/dashboard/v1/data/prospective-forecast.json" --content-type application/json --cache-control max-age=60 --sse AES256 --only-show-errors
+          aws s3 cp "$rolling" "s3://$DATA_LAKE_BUCKET/dashboard/v1/data/rolling-historical-replay.json" --content-type application/json --cache-control max-age=60 --sse AES256 --only-show-errors
+          echo "Published immutable evaluation refresh $refresh" >> "$GITHUB_STEP_SUMMARY"
+
+  publish-static-assets:
+    if: github.repository == 'example-org/texas-energy-intelligence-portfolio' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: us-east-1
+      DATA_LAKE_BUCKET: texas-energy-data-lake-example
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure canonical-lake publication credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:example:iam::<AWS_ACCOUNT_ID>:role/github-actions-texas-energy-intelligence-deploy
+          aws-region: us-east-1
+          allowed-account-ids: "<AWS_ACCOUNT_ID>"
+      - name: Publish static assets without replacing AWS evaluation data
+        run: |
+          set -euo pipefail
+          aws s3 sync public/ "s3://$DATA_LAKE_BUCKET/dashboard/v1/" \
+            --exclude 'data/prospective-forecast.json' \
+            --exclude 'data/rolling-prospective-evaluation.json' \
+            --exclude 'data/prospective-evaluation-manifest.json' \
+            --cache-control max-age=300 --sse AES256 --only-show-errors
+          echo "Published static dashboard assets; prospective evaluation is AWS-native." >> "$GITHUB_STEP_SUMMARY"
