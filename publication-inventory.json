@@ -126,34 +126,34 @@
       "sha256": "c7255b579a8c91b3beba8157b27db20055bff2932037ca6ff6db72f7022d3c0b"
     },
     {
-      "bytes": 6029,
+      "bytes": 9318,
       "path": "docs/architecture/mlops-cicd.drawio",
-      "sha256": "b4a76fa3336c0254d7497e4501087befb98026349650be70c568db3bf5373e09"
+      "sha256": "e64a0b5d3505c87102110ae6887e404ed8e9892dd2a4879cec4f4abbd6960820"
     },
     {
-      "bytes": 207020,
+      "bytes": 218871,
       "path": "docs/architecture/mlops-cicd.png",
-      "sha256": "91a0e2211d916685b6a3fc16fbf387fec50fba4888577c0f340239524eeba88c"
+      "sha256": "b56db56c79b74811a8e7d821bcd1888345b488fdbd71b304358a49aed18b53cc"
     },
     {
-      "bytes": 14356,
+      "bytes": 18306,
       "path": "docs/architecture/mlops-cicd.svg",
-      "sha256": "0cadc0bb79c011b7bc8893087a30d92c194c341c00956b1e427ae9e4ceaf42cd"
+      "sha256": "0f022dfe8d0a9a21402c73dcb13628d95c448d3d76e505faaede2694943d0ab7"
     },
     {
-      "bytes": 5982,
+      "bytes": 11226,
       "path": "docs/architecture/production-architecture.drawio",
-      "sha256": "b050ef956ce900440f3bd7559143748aa32e1889635ebe8082c09e7f3d2f3a70"
+      "sha256": "559ad95a8c2691e2be1b333038b2c92aeb6f72892df0a36719c0f040c9fd7885"
     },
     {
-      "bytes": 262543,
+      "bytes": 266494,
       "path": "docs/architecture/production-architecture.png",
-      "sha256": "3877c95ea9596ea3b1d3d5dc5a0e447678106360bb6590a8c83fea8448c5f3b9"
+      "sha256": "f6bb15bd6c7da53a10238f7e3ac5769fadd87438bc6d2331a9191c454ba325c0"
     },
     {
-      "bytes": 15739,
+      "bytes": 21252,
       "path": "docs/architecture/production-architecture.svg",
-      "sha256": "442988302d7d3607965d5f2872af1024b0a4500f0f8cd112b18ba30aa48b1b49"
+      "sha256": "9bea9ba802e4487b3b4b708957b159685ed9b28253dee543cc18d88dee863476"
     },
     {
       "bytes": 2807,
@@ -956,6 +956,11 @@
       "sha256": "45c6aaf0eeccc18a6d4e8b1381fcb69a8b1db4e2419dcee27356aa43d9842644"
     },
     {
+      "bytes": 1888,
+      "path": "tests/test_portfolio_diagrams.py",
+      "sha256": "50e56b37a1e692b874516276bab65d9e2d0396648eb9c669e8f3a73bfe7a14b1"
+    },
+    {
       "bytes": 2292,
       "path": "tests/test_prepare_sagemaker_validation_assets.py",
       "sha256": "86789ba6e83273cb0aae3c3eb50c7a1ac7ece553a938e4c52c5991c1dc668f1f"
@@ -987,5 +992,5 @@
     }
   ],
   "schema_version": "1.0",
-  "snapshot_sha256": "80ddb0d093514659fdd2be3398a7abaf6a6e5722df5cfc75382a9e21996a9429"
+  "snapshot_sha256": "0f4f1b34d67c6d65457a4782d23088372bb11a633db36421c791db7499a29453"
 }
