@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 from pathlib import Path
 
 
@@ -59,3 +60,7 @@ def test_exported_diagrams_are_editable_and_rendered() -> None:
         assert "swimlane" in drawio
         assert "<svg" in svg
         assert png.stat().st_size > 100_000
+        dimensions = re.search(r'<svg width="([0-9.]+)pt" height="([0-9.]+)pt"', svg)
+        viewbox = re.search(r'viewBox="0.00 0.00 ([0-9.]+) ([0-9.]+)"', svg)
+        assert dimensions and viewbox
+        assert dimensions.groups() == viewbox.groups()

@@ -31,9 +31,9 @@
       "sha256": "473bb08fe6a3d184091d6651e5f4c1b8157d30e4b1293d2ab5a3155931e944be"
     },
     {
-      "bytes": 3446,
+      "bytes": 3531,
       "path": "README.md",
-      "sha256": "ea272293966091dda6348ef1e24118bad33fe8cbe33729b113625e5890ba2ce8"
+      "sha256": "e38b1ab86b80bc6c8cbfcd14a1dc542bbd910cb845eeeb3713dc50064c404397"
     },
     {
       "bytes": 262,
@@ -76,9 +76,9 @@
       "sha256": "0f98dbca1d3cf3646888e7aff5fefcb0a8c4f3183d69a5c03e615ff4c143ad7f"
     },
     {
-      "bytes": 2934,
+      "bytes": 3269,
       "path": "ci-cd/github-actions/publish-portfolio-snapshot.yml",
-      "sha256": "0f91034a97e6e1ce1a1dc868658adc644f6111d698d049339177a308afd64a40"
+      "sha256": "84d0ede6e0022f45776e81078d1d959d15437f912bcdc3aace25ee2156e45d55"
     },
     {
       "bytes": 1886,
@@ -136,9 +136,9 @@
       "sha256": "b56db56c79b74811a8e7d821bcd1888345b488fdbd71b304358a49aed18b53cc"
     },
     {
-      "bytes": 18306,
+      "bytes": 18301,
       "path": "docs/architecture/mlops-cicd.svg",
-      "sha256": "0f022dfe8d0a9a21402c73dcb13628d95c448d3d76e505faaede2694943d0ab7"
+      "sha256": "c88969c070592d6939f452cd754fd16142936ea5eb424939554912d0620e6428"
     },
     {
       "bytes": 11226,
@@ -151,9 +151,9 @@
       "sha256": "f6bb15bd6c7da53a10238f7e3ac5769fadd87438bc6d2331a9191c454ba325c0"
     },
     {
-      "bytes": 21252,
+      "bytes": 21247,
       "path": "docs/architecture/production-architecture.svg",
-      "sha256": "9bea9ba802e4487b3b4b708957b159685ed9b28253dee543cc18d88dee863476"
+      "sha256": "4e4e942a2189cc1234662997ed1e95b4a5aa952df85877980d27b1c458bd9c3c"
     },
     {
       "bytes": 2807,
@@ -956,9 +956,9 @@
       "sha256": "45c6aaf0eeccc18a6d4e8b1381fcb69a8b1db4e2419dcee27356aa43d9842644"
     },
     {
-      "bytes": 1888,
+      "bytes": 2154,
       "path": "tests/test_portfolio_diagrams.py",
-      "sha256": "50e56b37a1e692b874516276bab65d9e2d0396648eb9c669e8f3a73bfe7a14b1"
+      "sha256": "3931432980ade5b63aa6a832f33dbd77472426c00a6ac958bc4ebae7095b5313"
     },
     {
       "bytes": 2292,
@@ -992,5 +992,5 @@
     }
   ],
   "schema_version": "1.0",
-  "snapshot_sha256": "0f4f1b34d67c6d65457a4782d23088372bb11a633db36421c791db7499a29453"
+  "snapshot_sha256": "00c4bde4fc68dd55a63757e869d3474ee5ef0b6282c7ba5efbdfbba45077a93d"
 }

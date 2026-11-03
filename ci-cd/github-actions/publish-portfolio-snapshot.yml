@@ -12,6 +12,11 @@ on:
         required: false
         default: false
         type: boolean
+      same_day_release:
+        description: "Permit one explicitly confirmed manual same-day correction release"
+        required: false
+        default: false
+        type: boolean
   # 02:17 UTC is CDT and 03:17 UTC is CST. The script accepts only the
   # matching 9:17 PM America/Chicago invocation, one eligible local-day
   # publication window, and the schedule stays gated.
@@ -57,5 +62,7 @@ jobs:
         run: |
           mode=manual
           if [ "${{ github.event_name }}" = "schedule" ]; then mode=scheduled; fi
+          same_day_flag=""
+          if [ "${{ inputs.same_day_release }}" = "true" ]; then same_day_flag="--allow-same-day-release"; fi
           git rev-list --all > /tmp/private-commit-ids.txt
-          python scripts/publish_portfolio_snapshot.py --mode "$mode" --private-commit-file /tmp/private-commit-ids.txt
+          python scripts/publish_portfolio_snapshot.py --mode "$mode" $same_day_flag --private-commit-file /tmp/private-commit-ids.txt

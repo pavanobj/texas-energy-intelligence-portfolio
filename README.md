@@ -6,9 +6,9 @@ A production-style portfolio for short-term ERCOT electricity-demand forecasting
 
 [Open the live Texas Energy Intelligence dashboard](https://d2na4w34xrcyyi.cloudfront.net/)
 
-![Production architecture](docs/architecture/production-architecture.svg)
+[![Production architecture](docs/architecture/production-architecture.png)](docs/architecture/production-architecture.svg)
 
-![MLOps and CI/CD architecture](docs/architecture/mlops-cicd.svg)
+[![MLOps and CI/CD architecture](docs/architecture/mlops-cicd.png)](docs/architecture/mlops-cicd.svg)
 
 ## What is included
 
