@@ -11,9 +11,9 @@
       "sha256": "e559ed0b55baa6cb4d017735c9dff99fce5dce4c5600f7e54bb316dbcc2ad4ff"
     },
     {
-      "bytes": 155,
+      "bytes": 157,
       "path": ".gitignore",
-      "sha256": "7fdc60bf8ebf3ef3ad2770e5174b2eaab05d4d9ea7c35ceba17384885b97d5aa"
+      "sha256": "d4bdeaa26856c00382df40cad4df74560a81cfb2a6e0435a3f89d154ff13e412"
     },
     {
       "bytes": 186,
@@ -987,5 +987,5 @@
     }
   ],
   "schema_version": "1.0",
-  "snapshot_sha256": "680a8e28345e06bfcf771d99d0d05d66e64035d1ee7b669c4d4dc145b74065d1"
+  "snapshot_sha256": "80ddb0d093514659fdd2be3398a7abaf6a6e5722df5cfc75382a9e21996a9429"
 }
